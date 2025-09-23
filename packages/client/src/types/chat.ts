@@ -6,3 +6,11 @@ export type ChatMessage = {
    content: string;
    createdAt: Date;
 };
+
+export type ChatConversation = {
+   id: string;
+   title: string;
+   createdAt: Date;
+   updatedAt: Date;
+   remoteId: string | null;
+};

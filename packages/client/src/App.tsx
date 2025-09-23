@@ -1,6 +1,8 @@
-import { useCallback, useState } from 'react';
-import type { FormEvent, KeyboardEvent } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
 
+import { ChatMessageList } from '@/components/chat/chat-message-list';
+import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { Button } from '@/components/ui/button';
 import {
    Card,
@@ -11,12 +13,28 @@ import {
    CardTitle,
 } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { ChatMessageList } from '@/components/chat/chat-message-list';
 import { useChat } from '@/hooks/useChat';
 
 function App() {
-   const { messages, isSending, sendMessage, resetChat, error } = useChat();
+   const {
+      conversations,
+      activeConversationId,
+      messages,
+      isSending,
+      error,
+      sendMessage,
+      startNewConversation,
+      selectConversation,
+   } = useChat();
    const [inputValue, setInputValue] = useState('');
+
+   const activeConversation = useMemo(
+      () =>
+         conversations.find(
+            (conversation) => conversation.id === activeConversationId
+         ),
+      [conversations, activeConversationId]
+   );
 
    const canSubmit = inputValue.trim().length > 0 && !isSending;
 
@@ -56,61 +74,120 @@ function App() {
       [canSubmit, submitMessage]
    );
 
+   const handleConversationChange = useCallback(
+      (event: ChangeEvent<HTMLSelectElement>) => {
+         selectConversation(event.target.value);
+      },
+      [selectConversation]
+   );
+
    return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-         <div className="container mx-auto flex min-h-screen max-w-4xl flex-col px-4 py-10">
-            <Card className="flex flex-1 flex-col">
-               <CardHeader className="border-b">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                     <div>
-                        <CardTitle className="text-2xl font-semibold">
-                           BuddyGPT
-                        </CardTitle>
-                        <CardDescription>
-                           Chat with your own artificial friend.
-                        </CardDescription>
-                     </div>
+         <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
+            <div className="flex flex-1 flex-col gap-6 sm:flex-row">
+               <ChatSidebar
+                  conversations={conversations}
+                  activeConversationId={activeConversationId}
+                  onSelectConversation={selectConversation}
+                  onNewConversation={startNewConversation}
+               />
+               <section className="flex flex-1 flex-col">
+                  <div className="mb-4 flex items-center gap-3 sm:hidden">
+                     <select
+                        value={activeConversationId}
+                        onChange={handleConversationChange}
+                        className="flex-1 rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/50"
+                     >
+                        {conversations.map((conversation) => (
+                           <option
+                              key={conversation.id}
+                              value={conversation.id}
+                           >
+                              {conversation.title}
+                           </option>
+                        ))}
+                     </select>
                      <Button
                         variant="outline"
                         size="sm"
-                        onClick={resetChat}
-                        disabled={messages.length === 0 && !error}
+                        onClick={startNewConversation}
                      >
-                        Start new chat
+                        New chat
                      </Button>
                   </div>
-                  {error && (
-                     <p className="mt-3 text-sm text-destructive">{error}</p>
-                  )}
-               </CardHeader>
-               <CardContent className="flex-1 overflow-y-auto p-6">
-                  <ChatMessageList messages={messages} isLoading={isSending} />
-               </CardContent>
-               <CardFooter className="border-t bg-card/60 p-4">
-                  <form
-                     onSubmit={handleSubmit}
-                     className="flex w-full flex-col gap-3 sm:flex-row sm:items-end"
-                  >
-                     <Textarea
-                        value={inputValue}
-                        onChange={(event) => setInputValue(event.target.value)}
-                        onKeyDown={handleKeyDown}
-                        placeholder="Ask anything"
-                        spellCheck
-                        rows={3}
-                        disabled={isSending}
-                     />
-                     <div className="flex items-center gap-2 self-end sm:self-auto">
-                        <Button type="submit" disabled={!canSubmit}>
-                           {isSending ? 'Sending...' : 'Send'}
-                        </Button>
-                     </div>
-                  </form>
-               </CardFooter>
-            </Card>
+                  <Card className="flex flex-1 flex-col">
+                     <CardHeader className="border-b bg-card/80">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                           <div>
+                              <CardTitle className="text-2xl font-semibold text-foreground">
+                                 Project Copilot
+                              </CardTitle>
+                              <CardDescription>
+                                 {activeConversation
+                                    ? `Last updated ${formatUpdatedAt(activeConversation.updatedAt)}`
+                                    : 'Start a conversation to begin.'}
+                              </CardDescription>
+                           </div>
+                           <div className="hidden gap-2 sm:flex">
+                              <Button
+                                 variant="outline"
+                                 size="sm"
+                                 onClick={startNewConversation}
+                              >
+                                 New chat
+                              </Button>
+                           </div>
+                        </div>
+                        {error && (
+                           <p className="mt-3 text-sm text-destructive">
+                              {error}
+                           </p>
+                        )}
+                     </CardHeader>
+                     <CardContent className="flex-1 overflow-y-auto p-6">
+                        <ChatMessageList
+                           messages={messages}
+                           isLoading={isSending}
+                        />
+                     </CardContent>
+                     <CardFooter className="border-t bg-card/60 p-4">
+                        <form
+                           onSubmit={handleSubmit}
+                           className="flex w-full flex-col gap-3 sm:flex-row sm:items-end"
+                        >
+                           <Textarea
+                              value={inputValue}
+                              onChange={(event) =>
+                                 setInputValue(event.target.value)
+                              }
+                              onKeyDown={handleKeyDown}
+                              placeholder="Ask anything"
+                              spellCheck
+                              rows={3}
+                              disabled={isSending}
+                           />
+                           <div className="flex items-center gap-2 self-end sm:self-auto">
+                              <Button type="submit" disabled={!canSubmit}>
+                                 {isSending ? 'Sending...' : 'Send'}
+                              </Button>
+                           </div>
+                        </form>
+                     </CardFooter>
+                  </Card>
+               </section>
+            </div>
          </div>
       </div>
    );
+}
+
+function formatUpdatedAt(date: Date) {
+   return new Intl.DateTimeFormat('en', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+   }).format(date);
 }
 
 export default App;
