@@ -1,7 +1,8 @@
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
-import { chatService } from '../services/chat.service';
 import z from 'zod';
+
+import { chatService } from '../services/chat.service';
 
 // Implementation details
 const chatSchema = z.object({
@@ -10,7 +11,14 @@ const chatSchema = z.object({
       .trim()
       .min(1, 'Prompt is required')
       .max(1000, 'Prompt is too long (max 1000 characters)'),
-   conversationId: z.string().uuid().optional(),
+   conversationId: z.preprocess((value) => {
+      if (typeof value !== 'string') {
+         return undefined;
+      }
+
+      const trimmed = value.trim();
+      return trimmed.length === 0 ? undefined : trimmed;
+   }, z.string().uuid().optional()),
 });
 
 // Public interface
