@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express';
+﻿import type { Request, Response } from 'express';
 import { chatService } from '../services/chat.service';
 import z from 'zod';
 
@@ -23,7 +23,7 @@ export const chatController = {
       }
 
       try {
-         const { prompt, conversationId } = req.body;
+         const { prompt, conversationId } = parseResult.data;
          const response = await chatService.sendMessage(prompt, conversationId);
 
          res.json({ message: response.message });
