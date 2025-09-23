@@ -3,6 +3,11 @@ import type { Request, Response } from 'express';
 import z from 'zod';
 
 import { chatService } from '../services/chat.service';
+import {
+   conversationRepository,
+   type ConversationMessage,
+   type ConversationRecord,
+} from '../repositories/conversation.repository';
 
 // Implementation details
 const chatSchema = z.object({
@@ -21,6 +26,36 @@ const chatSchema = z.object({
    }, z.string().uuid().optional()),
 });
 
+function buildTitleFromPrompt(prompt: string) {
+   const trimmed = prompt.trim();
+
+   if (!trimmed) {
+      return null;
+   }
+
+   return trimmed.length > 48 ? `${trimmed.slice(0, 45)}...` : trimmed;
+}
+
+function serializeMessage(message: ConversationMessage) {
+   return {
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      createdAt: message.createdAt.toISOString(),
+   };
+}
+
+function serializeConversation(conversation: ConversationRecord) {
+   return {
+      id: conversation.id,
+      title: conversation.title,
+      createdAt: conversation.createdAt.toISOString(),
+      updatedAt: conversation.updatedAt.toISOString(),
+      messageCount: conversation.messages.length,
+      messages: conversation.messages.map(serializeMessage),
+   };
+}
+
 // Public interface
 export const chatController = {
    async sendMessage(req: Request, res: Response) {
@@ -31,20 +66,61 @@ export const chatController = {
          return;
       }
 
+      const { prompt, conversationId } = parseResult.data;
+      const activeConversationId = conversationId ?? randomUUID();
+      const timestamp = new Date();
+
+      const title = buildTitleFromPrompt(prompt) ?? undefined;
+
+      conversationRepository.ensure(activeConversationId);
+      conversationRepository.updateTitleIfDefault(
+         activeConversationId,
+         title ?? ''
+      );
+      conversationRepository.addMessage(activeConversationId, {
+         id: randomUUID(),
+         role: 'user',
+         content: prompt,
+         createdAt: timestamp,
+      });
+
       try {
-         const { prompt, conversationId } = parseResult.data;
-         const activeConversationId = conversationId ?? randomUUID();
          const response = await chatService.sendMessage(
             prompt,
             activeConversationId
          );
 
-         res.json({
-            message: response.message,
-            conversationId: activeConversationId,
-         });
+         const assistantMessage: ConversationMessage = {
+            id: response.id,
+            role: 'assistant',
+            content: response.message,
+            createdAt: new Date(),
+         };
+
+         conversationRepository.addMessage(
+            activeConversationId,
+            assistantMessage
+         );
+
+         const conversation = conversationRepository.get(activeConversationId);
+
+         if (!conversation) {
+            res.status(500).json({
+               error: 'Conversation could not be retrieved.',
+            });
+            return;
+         }
+
+         res.json({ conversation: serializeConversation(conversation) });
       } catch (error) {
-         res.status(500).json({ error: 'Failed to generate a response.' });
+         const conversation = conversationRepository.get(activeConversationId);
+
+         res.status(500).json({
+            error: 'Failed to generate a response.',
+            conversation: conversation
+               ? serializeConversation(conversation)
+               : undefined,
+         });
       }
    },
 };

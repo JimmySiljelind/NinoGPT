@@ -21,7 +21,9 @@ function App() {
       activeConversationId,
       messages,
       isSending,
+      isLoadingConversations,
       error,
+      globalError,
       sendMessage,
       startNewConversation,
       selectConversation,
@@ -32,11 +34,15 @@ function App() {
       () =>
          conversations.find(
             (conversation) => conversation.id === activeConversationId
-         ),
+         ) ?? null,
       [conversations, activeConversationId]
    );
 
-   const canSubmit = inputValue.trim().length > 0 && !isSending;
+   const canSubmit =
+      inputValue.trim().length > 0 &&
+      !isSending &&
+      !isLoadingConversations &&
+      Boolean(activeConversationId);
 
    const submitMessage = useCallback(async () => {
       const trimmed = inputValue.trim();
@@ -76,10 +82,28 @@ function App() {
 
    const handleConversationChange = useCallback(
       (event: ChangeEvent<HTMLSelectElement>) => {
-         selectConversation(event.target.value);
+         if (event.target.value) {
+            selectConversation(event.target.value);
+         }
       },
       [selectConversation]
    );
+
+   const startNewChat = useCallback(() => {
+      void startNewConversation();
+   }, [startNewConversation]);
+
+   const headerMessage = (() => {
+      if (isLoadingConversations) {
+         return 'Loading conversations...';
+      }
+
+      if (activeConversation) {
+         return `Last updated ${formatUpdatedAt(activeConversation.updatedAt)}`;
+      }
+
+      return 'Start a conversation to begin.';
+   })();
 
    return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
@@ -89,15 +113,23 @@ function App() {
                   conversations={conversations}
                   activeConversationId={activeConversationId}
                   onSelectConversation={selectConversation}
-                  onNewConversation={startNewConversation}
+                  onNewConversation={startNewChat}
                />
                <section className="flex flex-1 flex-col">
                   <div className="mb-4 flex items-center gap-3 sm:hidden">
                      <select
-                        value={activeConversationId}
+                        value={activeConversationId ?? ''}
                         onChange={handleConversationChange}
+                        disabled={isLoadingConversations}
                         className="flex-1 rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/50"
                      >
+                        {conversations.length === 0 && (
+                           <option value="" disabled>
+                              {isLoadingConversations
+                                 ? 'Loading conversations...'
+                                 : 'No conversations yet'}
+                           </option>
+                        )}
                         {conversations.map((conversation) => (
                            <option
                               key={conversation.id}
@@ -110,7 +142,8 @@ function App() {
                      <Button
                         variant="outline"
                         size="sm"
-                        onClick={startNewConversation}
+                        onClick={startNewChat}
+                        disabled={isLoadingConversations || isSending}
                      >
                         New chat
                      </Button>
@@ -120,34 +153,31 @@ function App() {
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                            <div>
                               <CardTitle className="text-2xl font-semibold text-foreground">
-                                 Project Copilot
+                                 BuddyGPT
                               </CardTitle>
-                              <CardDescription>
-                                 {activeConversation
-                                    ? `Last updated ${formatUpdatedAt(activeConversation.updatedAt)}`
-                                    : 'Start a conversation to begin.'}
-                              </CardDescription>
+                              <CardDescription>{headerMessage}</CardDescription>
                            </div>
                            <div className="hidden gap-2 sm:flex">
                               <Button
                                  variant="outline"
                                  size="sm"
-                                 onClick={startNewConversation}
+                                 onClick={startNewChat}
+                                 disabled={isLoadingConversations || isSending}
                               >
                                  New chat
                               </Button>
                            </div>
                         </div>
-                        {error && (
+                        {(error || globalError) && (
                            <p className="mt-3 text-sm text-destructive">
-                              {error}
+                              {error ?? globalError}
                            </p>
                         )}
                      </CardHeader>
                      <CardContent className="flex-1 overflow-y-auto p-6">
                         <ChatMessageList
                            messages={messages}
-                           isLoading={isSending}
+                           isLoading={isSending || isLoadingConversations}
                         />
                      </CardContent>
                      <CardFooter className="border-t bg-card/60 p-4">
@@ -164,7 +194,11 @@ function App() {
                               placeholder="Ask anything"
                               spellCheck
                               rows={3}
-                              disabled={isSending}
+                              disabled={
+                                 isSending ||
+                                 isLoadingConversations ||
+                                 !activeConversationId
+                              }
                            />
                            <div className="flex items-center gap-2 self-end sm:self-auto">
                               <Button type="submit" disabled={!canSubmit}>

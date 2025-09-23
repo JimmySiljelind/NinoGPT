@@ -12,5 +12,9 @@ export type ChatConversation = {
    title: string;
    createdAt: Date;
    updatedAt: Date;
-   remoteId: string | null;
+   messageCount: number;
+};
+
+export type ChatConversationDetail = ChatConversation & {
+   messages: ChatMessage[];
 };

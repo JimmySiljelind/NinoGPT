@@ -6,7 +6,7 @@ import type { ChatConversation } from '@/types/chat';
 
 type ChatSidebarProps = {
    conversations: ChatConversation[];
-   activeConversationId: string;
+   activeConversationId: string | null;
    onSelectConversation: (conversationId: string) => void;
    onNewConversation: () => void;
 };
@@ -73,9 +73,9 @@ export function ChatSidebar({
                                  </time>
                               </div>
                               <p className="mt-1 text-xs text-muted-foreground">
-                                 {conversation.remoteId
-                                    ? 'Synced session'
-                                    : 'Draft session'}
+                                 {conversation.messageCount > 0
+                                    ? `${conversation.messageCount} message${conversation.messageCount === 1 ? '' : 's'}`
+                                    : 'No messages yet'}
                               </p>
                            </button>
                         </li>
