@@ -1,4 +1,5 @@
-﻿import type { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
+import type { Request, Response } from 'express';
 import { chatService } from '../services/chat.service';
 import z from 'zod';
 
@@ -9,7 +10,7 @@ const chatSchema = z.object({
       .trim()
       .min(1, 'Prompt is required')
       .max(1000, 'Prompt is too long (max 1000 characters)'),
-   conversationId: z.string().uuid(),
+   conversationId: z.string().uuid().optional(),
 });
 
 // Public interface
@@ -24,9 +25,16 @@ export const chatController = {
 
       try {
          const { prompt, conversationId } = parseResult.data;
-         const response = await chatService.sendMessage(prompt, conversationId);
+         const activeConversationId = conversationId ?? randomUUID();
+         const response = await chatService.sendMessage(
+            prompt,
+            activeConversationId
+         );
 
-         res.json({ message: response.message });
+         res.json({
+            message: response.message,
+            conversationId: activeConversationId,
+         });
       } catch (error) {
          res.status(500).json({ error: 'Failed to generate a response.' });
       }
