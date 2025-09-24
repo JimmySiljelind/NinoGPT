@@ -67,4 +67,22 @@ export const conversationController = {
 
       res.json({ conversation: serializeConversation(conversation) });
    },
+
+   delete(req: Request, res: Response) {
+      const conversationId = req.params.conversationId;
+
+      if (!conversationId) {
+         res.status(400).json({ error: 'Conversation id is required.' });
+         return;
+      }
+
+      const removed = conversationRepository.delete(conversationId);
+
+      if (!removed) {
+         res.status(404).json({ error: 'Conversation not found' });
+         return;
+      }
+
+      res.status(204).send();
+   },
 };

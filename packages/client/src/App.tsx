@@ -27,6 +27,7 @@ function App() {
       globalError,
       sendMessage,
       startNewConversation,
+      deleteConversation,
       selectConversation,
    } = useChat();
    const [inputValue, setInputValue] = useState('');
@@ -115,6 +116,7 @@ function App() {
                   activeConversationId={activeConversationId}
                   onSelectConversation={selectConversation}
                   onNewConversation={startNewChat}
+                  onDeleteConversation={deleteConversation}
                />
                <section className="flex flex-1 flex-col">
                   <div className="mb-4 flex items-center gap-3 sm:hidden">

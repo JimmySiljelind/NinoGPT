@@ -174,3 +174,15 @@ export async function sendChatMessage(
 
    return parseConversationDetail(data.conversation as ConversationDetailDto);
 }
+
+export async function deleteConversation(
+   conversationId: string
+): Promise<void> {
+   if (!conversationId) {
+      throw new ChatRequestError('Conversation id is required.');
+   }
+
+   await makeJsonRequest(`/api/conversations/${conversationId}`, {
+      method: 'DELETE',
+   });
+}

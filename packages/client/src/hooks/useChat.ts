@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
    ChatRequestError,
    createConversation,
+   deleteConversation as deleteConversationRequest,
    getConversation,
    listConversations,
    sendChatMessage,
@@ -25,6 +26,7 @@ type UseChatReturn = {
    sendMessage: (input: string) => Promise<void>;
    selectConversation: (conversationId: string) => void;
    startNewConversation: () => Promise<void>;
+   deleteConversation: (conversationId: string) => Promise<void>;
    resetChat: () => Promise<void>;
 };
 
@@ -413,6 +415,63 @@ export function useChat(): UseChatReturn {
       ]
    );
 
+   const deleteConversation = useCallback(
+      async (conversationId: string) => {
+         if (!conversationId) {
+            return;
+         }
+
+         try {
+            await deleteConversationRequest(conversationId);
+
+            let nextActiveId: string | null = null;
+
+            setConversations((prev) => {
+               const next = prev.filter((item) => item.id !== conversationId);
+
+               if (activeConversationId === conversationId) {
+                  nextActiveId = next[0]?.id ?? null;
+               }
+
+               return next;
+            });
+
+            setMessagesMap((prev) => {
+               const { [conversationId]: _removed, ...rest } = prev;
+               return rest;
+            });
+
+            setErrors((prev) => {
+               const { [conversationId]: _removed, ...rest } = prev;
+               return rest;
+            });
+
+            setGlobalError(null);
+
+            if (activeConversationId === conversationId) {
+               if (nextActiveId) {
+                  selectConversation(nextActiveId);
+               } else {
+                  setActiveConversationId(null);
+               }
+            }
+         } catch (error) {
+            const message =
+               error instanceof ChatRequestError
+                  ? error.message
+                  : error instanceof Error
+                    ? error.message
+                    : 'Failed to delete conversation.';
+
+            setGlobalError(message);
+            setErrors((prev) => ({ ...prev, [conversationId]: message }));
+
+            throw error;
+         }
+      },
+      [activeConversationId, selectConversation]
+   );
+
    const resetChat = useCallback(
       () => startNewConversation(),
       [startNewConversation]
@@ -429,6 +488,7 @@ export function useChat(): UseChatReturn {
       sendMessage,
       selectConversation,
       startNewConversation,
+      deleteConversation,
       resetChat,
    };
 }

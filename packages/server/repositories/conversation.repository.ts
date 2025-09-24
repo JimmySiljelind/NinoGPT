@@ -129,6 +129,14 @@ const insertMessageStmt = database.query<
     VALUES ($id, $conversationId, $role, $content, $createdAt)`
 );
 
+const deleteConversationStmt = database.query<
+   Record<string, never>,
+   { $id: string }
+>(
+   `DELETE FROM conversations
+    WHERE id = $id`
+);
+
 function rowToConversation(
    row: ConversationRow,
    messages: ConversationMessage[]
@@ -312,5 +320,18 @@ export const conversationRepository = {
          $lastResponseId: responseId,
          $updatedAt: new Date().toISOString(),
       });
+   },
+
+   delete(conversationId: string) {
+      const existing = selectConversationStmt.get({
+         $id: conversationId,
+      }) as ConversationRow | undefined | null;
+
+      if (!existing) {
+         return false;
+      }
+
+      deleteConversationStmt.run({ $id: conversationId });
+      return true;
    },
 };

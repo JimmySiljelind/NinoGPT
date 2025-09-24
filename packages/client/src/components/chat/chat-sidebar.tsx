@@ -1,6 +1,12 @@
-import { Plus } from 'lucide-react';
+import { MoreVertical, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import {
+   DropdownMenu,
+   DropdownMenuContent,
+   DropdownMenuItem,
+   DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import type { ChatConversation } from '@/types/chat';
 
@@ -9,6 +15,7 @@ type ChatSidebarProps = {
    activeConversationId: string | null;
    onSelectConversation: (conversationId: string) => void;
    onNewConversation: () => void;
+   onDeleteConversation: (conversationId: string) => Promise<void> | void;
 };
 
 export function ChatSidebar({
@@ -16,6 +23,7 @@ export function ChatSidebar({
    activeConversationId,
    onSelectConversation,
    onNewConversation,
+   onDeleteConversation,
 }: ChatSidebarProps) {
    return (
       <aside className="hidden w-72 flex-col border border-border/75 bg-card/50 py-6 shadow-sm sm:flex">
@@ -36,7 +44,7 @@ export function ChatSidebar({
                <Plus className="size-4" />
             </Button>
          </div>
-         <div className="flex-1 overflow-y-auto px-0.5">
+         <div className="flex-1 overflow-y-auto pr-0.5">
             {conversations.length === 0 ? (
                <div className="rounded-md border border-dashed border-border/60 bg-muted/40 p-4 text-xs text-muted-foreground">
                   Your conversations will appear here.
@@ -47,19 +55,20 @@ export function ChatSidebar({
                      const isActive = conversation.id === activeConversationId;
 
                      return (
-                        <li key={conversation.id}>
+                        <li key={conversation.id} className="relative group">
                            <button
                               type="button"
                               onClick={() =>
                                  onSelectConversation(conversation.id)
                               }
                               className={cn(
-                                 'w-full cursor-pointer rounded-lg border border-transparent px-3 py-2 text-left text-sm transition-colors',
-                                 'hover:bg-muted/100 focus-visible:outline-none focus-visible:ring-ring/100',
+                                 'w-full cursor-pointer rounded-lg border border-transparent px-3 py-2 pr-10 text-left text-sm transition-colors',
+                                 'hover:bg-muted/100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:bg-muted/100',
                                  isActive
-                                    ? 'text-foreground bg-muted/70 border-black/10'
+                                    ? 'border-black/10 bg-muted/70 text-foreground shadow-sm'
                                     : 'text-muted-foreground'
                               )}
+                              aria-current={isActive ? 'true' : undefined}
                            >
                               <div className="flex items-center justify-between gap-3">
                                  <span className="truncate font-medium text-foreground">
@@ -78,6 +87,39 @@ export function ChatSidebar({
                                     : 'No messages yet'}
                               </p>
                            </button>
+                           <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                 <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="absolute right-1 top-1/2 size-9 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 group-hover:opacity-100 data-[state=open]:opacity-100"
+                                    aria-label={`Open actions for ${conversation.title}`}
+                                 >
+                                    <MoreVertical className="size-5" />
+                                    <span className="sr-only">
+                                       Open conversation menu
+                                    </span>
+                                 </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                 align="end"
+                                 className="w-48"
+                                 sideOffset={6}
+                              >
+                                 <DropdownMenuItem
+                                    className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+                                    onSelect={() => {
+                                       void onDeleteConversation(
+                                          conversation.id
+                                       );
+                                    }}
+                                 >
+                                    <Trash2 className="size-4" aria-hidden />
+                                    <span>Delete chat</span>
+                                 </DropdownMenuItem>
+                              </DropdownMenuContent>
+                           </DropdownMenu>
                         </li>
                      );
                   })}
