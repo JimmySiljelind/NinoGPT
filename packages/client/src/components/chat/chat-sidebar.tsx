@@ -18,8 +18,8 @@ export function ChatSidebar({
    onNewConversation,
 }: ChatSidebarProps) {
    return (
-      <aside className="hidden w-72 flex-col border-r bg-card/70 px-4 py-6 shadow-sm sm:flex">
-         <div className="mb-6 flex items-center justify-between gap-2">
+      <aside className="hidden w-72 flex-col border border-border/75 bg-card/50 py-6 shadow-sm sm:flex">
+         <div className="mb-6 flex items-center justify-between gap-2 px-4">
             <div className="flex flex-col">
                <h2 className="text-sm font-semibold text-muted-foreground">
                   Conversations
@@ -36,7 +36,7 @@ export function ChatSidebar({
                <Plus className="size-4" />
             </Button>
          </div>
-         <div className="flex-1 overflow-y-auto pr-1">
+         <div className="flex-1 overflow-y-auto px-0.5">
             {conversations.length === 0 ? (
                <div className="rounded-md border border-dashed border-border/60 bg-muted/40 p-4 text-xs text-muted-foreground">
                   Your conversations will appear here.
@@ -54,11 +54,11 @@ export function ChatSidebar({
                                  onSelectConversation(conversation.id)
                               }
                               className={cn(
-                                 'w-full rounded-lg border border-transparent px-3 py-2 text-left text-sm transition-colors',
-                                 'hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                                 'w-full cursor-pointer rounded-lg border border-transparent px-3 py-2 text-left text-sm transition-colors',
+                                 'hover:bg-muted/100 focus-visible:outline-none focus-visible:ring-ring/100',
                                  isActive
-                                    ? 'bg-primary/10 text-foreground shadow-sm ring-1 ring-primary/20'
-                                    : 'bg-card text-muted-foreground'
+                                    ? 'text-foreground bg-muted/70 border-black/10'
+                                    : 'text-muted-foreground'
                               )}
                            >
                               <div className="flex items-center justify-between gap-3">

@@ -3,6 +3,7 @@ import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
 
 import { ChatMessageList } from '@/components/chat/chat-message-list';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
+import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
 import {
    Card,
@@ -106,7 +107,7 @@ function App() {
    })();
 
    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+      <div className="min-h-screen bg-background">
          <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
             <div className="flex flex-1 flex-col gap-6 sm:flex-row">
                <ChatSidebar
@@ -147,17 +148,19 @@ function App() {
                      >
                         New chat
                      </Button>
+                     <ThemeToggle className="shrink-0" />
                   </div>
                   <Card className="flex flex-1 flex-col">
-                     <CardHeader className="border-b bg-card/80">
+                     <CardHeader className="rounded-xs border-b border-border/75 bg-card/80">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                            <div>
                               <CardTitle className="text-2xl font-semibold text-foreground">
-                                 BuddyGPT
+                                 NinoGPT
                               </CardTitle>
                               <CardDescription>{headerMessage}</CardDescription>
                            </div>
-                           <div className="hidden gap-2 sm:flex">
+                           <div className="hidden items-center gap-2 sm:flex">
+                              <ThemeToggle className="shrink-0" />
                               <Button
                                  variant="outline"
                                  size="sm"
