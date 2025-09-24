@@ -1,0 +1,12 @@
+<!-- public/ai.svg — Othala (ᛟ) with extra-thick strokes -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 82"
+     stroke="#0f0f0fff" stroke-width="8" fill="none"
+     stroke-linecap="round" stroke-linejoin="round">
+
+  <!-- Diamond -->
+  <polygon points="32,8 52,32 32,56 12,32"/>
+
+  <!-- Legs -->
+  <line x1="32" y1="56" x2="10" y2="82"/>   <!-- left leg -->
+  <line x1="32" y1="56" x2="54" y2="82"/>   <!-- right leg -->
+</svg>
