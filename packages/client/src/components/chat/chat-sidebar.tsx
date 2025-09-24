@@ -44,7 +44,7 @@ export function ChatSidebar({
                <Plus className="size-4" />
             </Button>
          </div>
-         <div className="flex-1 overflow-y-auto pr-0.5">
+         <div className="flex-1 overflow-y-auto px-0.5">
             {conversations.length === 0 ? (
                <div className="rounded-md border border-dashed border-border/60 bg-muted/40 p-4 text-xs text-muted-foreground">
                   Your conversations will appear here.
