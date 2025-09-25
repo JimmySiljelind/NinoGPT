@@ -1,5 +1,53 @@
-import type { ChatMessage } from '@/types/chat';
+import { Fragment } from 'react';
+
 import { cn } from '@/lib/utils';
+import type { ChatMessage } from '@/types/chat';
+
+type MessageSegment =
+   | { type: 'text'; content: string }
+   | { type: 'code'; content: string; language?: string };
+
+function parseMessageSegments(input: string): MessageSegment[] {
+   const raw = input.replace(/\r\n/g, '\n');
+   const segments: MessageSegment[] = [];
+   const codeFence = /```([^\n]*)?\n([\s\S]*?)```/g;
+
+   let lastIndex = 0;
+   let match: RegExpExecArray | null = null;
+
+   while ((match = codeFence.exec(raw)) !== null) {
+      const [fullMatch, lang, code] = match;
+      const matchStart = match.index;
+
+      if (matchStart > lastIndex) {
+         const text = raw.slice(lastIndex, matchStart);
+         if (text.trim().length > 0 || text.includes('\n')) {
+            segments.push({ type: 'text', content: text });
+         }
+      }
+
+      segments.push({
+         type: 'code',
+         content: code.replace(/\s+$/, ''),
+         language: lang?.trim() || undefined,
+      });
+
+      lastIndex = matchStart + fullMatch.length;
+   }
+
+   if (lastIndex < raw.length) {
+      const remainder = raw.slice(lastIndex);
+      if (remainder.trim().length > 0 || remainder.includes('\n')) {
+         segments.push({ type: 'text', content: remainder });
+      }
+   }
+
+   if (segments.length === 0) {
+      segments.push({ type: 'text', content: raw });
+   }
+
+   return segments;
+}
 
 function formatTimestamp(date: Date) {
    return new Intl.DateTimeFormat('en', {
@@ -21,13 +69,14 @@ export function ChatMessageItem({ message }: { message: ChatMessage }) {
 
    const isUser = message.role === 'user';
    const bubbleClasses = cn(
-      'max-w-[70ch] whitespace-pre-wrap rounded-2xl px-4 py-2 text-sm shadow-sm',
+      'max-w-[70ch] rounded-2xl px-4 py-3 text-sm shadow-sm flex flex-col gap-3',
       isUser
          ? 'bg-primary text-primary-foreground rounded-br-md'
          : 'bg-muted text-foreground rounded-bl-md'
    );
 
    const timestamp = formatTimestamp(message.createdAt);
+   const segments = parseMessageSegments(message.content);
 
    return (
       <div
@@ -53,7 +102,30 @@ export function ChatMessageItem({ message }: { message: ChatMessage }) {
                   {timestamp}
                </time>
             </div>
-            <div className={bubbleClasses}>{message.content}</div>
+            <div className={bubbleClasses}>
+               {segments.map((segment, index) => (
+                  <Fragment key={`${segment.type}-${index}`}>
+                     {segment.type === 'text' ? (
+                        <div className="whitespace-pre-wrap leading-relaxed">
+                           {segment.content}
+                        </div>
+                     ) : (
+                        <figure className="relative overflow-hidden rounded-xl bg-[#151515] text-slate-100 shadow-inner ring-1 ring-zinc-700/40">
+                           {segment.language && (
+                              <figcaption className="absolute right-3 top-2 text-[0.65rem] uppercase tracking-wider text-slate-400">
+                                 {segment.language}
+                              </figcaption>
+                           )}
+                           <pre className="max-h-[28rem] overflow-auto px-4 pb-4 pt-6 text-[0.8rem] leading-relaxed">
+                              <code className="font-mono">
+                                 {segment.content}
+                              </code>
+                           </pre>
+                        </figure>
+                     )}
+                  </Fragment>
+               ))}
+            </div>
          </div>
          {isUser && <MessageAvatar role={message.role} />}
       </div>
