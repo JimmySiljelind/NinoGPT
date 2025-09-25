@@ -1,10 +1,11 @@
-import { useCallback, useMemo, useState } from 'react';
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent, KeyboardEvent } from 'react';
 
 import { ChatMessageList } from '@/components/chat/chat-message-list';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
+import { Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useChat } from '@/hooks/useChat';
 
@@ -23,6 +24,7 @@ function App() {
       selectConversation,
    } = useChat();
    const [inputValue, setInputValue] = useState('');
+   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
    const activeConversation = useMemo(
       () =>
@@ -37,6 +39,19 @@ function App() {
       !isSending &&
       !isLoadingConversations &&
       Boolean(activeConversationId);
+
+   useEffect(() => {
+      const el = textareaRef.current;
+      if (!el) {
+         return;
+      }
+
+      el.style.height = 'auto';
+      const minHeight = 50;
+      const maxHeight = 150;
+      const nextHeight = Math.min(el.scrollHeight, maxHeight);
+      el.style.height = `${Math.max(nextHeight, minHeight)}px`;
+   }, [inputValue]);
 
    const submitMessage = useCallback(async () => {
       const trimmed = inputValue.trim();
@@ -108,8 +123,8 @@ function App() {
             onNewConversation={startNewChat}
             onDeleteConversation={deleteConversation}
          />
-         <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6 sm:px-6 lg:px-8">
-            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+         <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
+            <header className="sticky top-0 z-20 flex flex-col gap-3 border-b border-border/60 bg-background/90 py-4 sm:flex-row sm:items-center sm:justify-between sm:py-6 supports-[backdrop-filter]:bg-background/75 supports-[backdrop-filter]:backdrop-blur">
                <div>
                   <h1 className="text-3xl font-semibold text-foreground">
                      NinoGPT
@@ -166,20 +181,21 @@ function App() {
                   </Button>
                   <ThemeToggle className="shrink-0" />
                </div>
-               <div className="flex-1 overflow-hidden">
-                  <div className="mx-auto flex h-full w-full max-w-3xl flex-col">
+               <div className="flex flex-1 min-h-0">
+                  <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col min-h-0">
                      <div className="flex-1 overflow-y-auto py-4 sm:py-6">
                         <ChatMessageList
                            messages={messages}
                            isLoading={isSending || isLoadingConversations}
                         />
                      </div>
-                     <div className="border-t border-border/60 bg-background/95 p-4 sm:p-6">
+                     <div className="mt-auto sticky bottom-0 z-10 pb-4 sm:pb-5">
                         <form
                            onSubmit={handleSubmit}
-                           className="flex w-full items-end gap-3"
+                           className="relative w-full"
                         >
                            <Textarea
+                              ref={textareaRef}
                               value={inputValue}
                               onChange={(event) =>
                                  setInputValue(event.target.value)
@@ -187,16 +203,22 @@ function App() {
                               onKeyDown={handleKeyDown}
                               placeholder="Ask anything"
                               spellCheck
-                              rows={3}
-                              className="min-h-[56px] flex-1 resize-none"
+                              rows={1}
+                              className="min-h-[50px] max-h-[150px] w-full resize-none overflow-y-auto rounded-3xl border border-border/50 bg-card/98 px-4 py-2.5 pr-16 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
                               disabled={
                                  isSending ||
                                  isLoadingConversations ||
                                  !activeConversationId
                               }
                            />
-                           <Button type="submit" disabled={!canSubmit}>
-                              {isSending ? 'Sending...' : 'Send'}
+                           <Button
+                              type="submit"
+                              disabled={!canSubmit}
+                              size="icon"
+                              className="absolute top-1/2 right-1 h-10 w-10 -translate-y-1/2 rounded-full"
+                           >
+                              <Send className="h-4 w-4" />
+                              <span className="sr-only">Send</span>
                            </Button>
                         </form>
                      </div>
