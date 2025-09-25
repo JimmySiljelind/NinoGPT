@@ -181,7 +181,7 @@ function fetchConversation(conversationId: string): ConversationRecord | null {
    return rowToConversation(row, messages);
 }
 
-function ensure(conversationId: string) {
+function createConversationIfMissing(conversationId: string) {
    const now = new Date().toISOString();
 
    insertConversationStmt.run({
@@ -195,7 +195,7 @@ function ensure(conversationId: string) {
 
 export const conversationRepository = {
    ensure(conversationId: string) {
-      ensure(conversationId);
+      createConversationIfMissing(conversationId);
       const conversation = fetchConversation(conversationId);
 
       if (!conversation) {
@@ -217,7 +217,7 @@ export const conversationRepository = {
    },
 
    create(conversationId: string) {
-      ensure(conversationId);
+      createConversationIfMissing(conversationId);
       const conversation = fetchConversation(conversationId);
 
       if (!conversation) {
@@ -228,8 +228,6 @@ export const conversationRepository = {
    },
 
    addMessage(conversationId: string, message: ConversationMessage) {
-      ensure(conversationId);
-
       insertMessageStmt.run({
          $id: message.id,
          $conversationId: conversationId,
@@ -245,8 +243,6 @@ export const conversationRepository = {
    },
 
    updateTitle(conversationId: string, title: string) {
-      ensure(conversationId);
-
       if (!title.trim()) {
          return fetchConversation(conversationId);
       }
@@ -269,8 +265,6 @@ export const conversationRepository = {
    },
 
    updateTitleIfDefault(conversationId: string, title: string) {
-      ensure(conversationId);
-
       const current = selectConversationStmt.get({ $id: conversationId }) as
          | ConversationRow
          | undefined
@@ -300,12 +294,10 @@ export const conversationRepository = {
    },
 
    getMessages(conversationId: string) {
-      ensure(conversationId);
       return fetchMessages(conversationId);
    },
 
    getLastResponseId(conversationId: string) {
-      ensure(conversationId);
       const row = selectConversationStmt.get({ $id: conversationId }) as
          | ConversationRow
          | undefined
@@ -314,7 +306,6 @@ export const conversationRepository = {
    },
 
    setLastResponseId(conversationId: string, responseId: string) {
-      ensure(conversationId);
       updateLastResponseIdStmt.run({
          $id: conversationId,
          $lastResponseId: responseId,
