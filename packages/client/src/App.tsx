@@ -5,14 +5,6 @@ import { ChatMessageList } from '@/components/chat/chat-message-list';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
-import {
-   Card,
-   CardContent,
-   CardDescription,
-   CardFooter,
-   CardHeader,
-   CardTitle,
-} from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { useChat } from '@/hooks/useChat';
 
@@ -116,8 +108,34 @@ function App() {
             onNewConversation={startNewChat}
             onDeleteConversation={deleteConversation}
          />
-         <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-8 sm:px-6 lg:px-8">
-            <section className="flex flex-1 flex-col">
+         <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+            <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+               <div>
+                  <h1 className="text-3xl font-semibold text-foreground">
+                     NinoGPT
+                  </h1>
+                  <p className="text-sm text-muted-foreground">
+                     {headerMessage}
+                  </p>
+               </div>
+               <div className="hidden items-center gap-2 sm:flex">
+                  <ThemeToggle className="shrink-0" />
+                  <Button
+                     variant="outline"
+                     size="sm"
+                     onClick={startNewChat}
+                     disabled={isLoadingConversations || isSending}
+                  >
+                     New chat
+                  </Button>
+               </div>
+            </header>
+            {(error || globalError) && (
+               <p className="mt-2 text-sm text-destructive">
+                  {error ?? globalError}
+               </p>
+            )}
+            <div className="mt-4 flex flex-1 flex-col">
                <div className="mb-4 flex items-center gap-3 sm:hidden">
                   <select
                      value={activeConversationId ?? ''}
@@ -148,68 +166,43 @@ function App() {
                   </Button>
                   <ThemeToggle className="shrink-0" />
                </div>
-               <Card className="flex flex-1 flex-col">
-                  <CardHeader className="rounded-xs border-b border-border/75 bg-card/80">
-                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div>
-                           <CardTitle className="text-2xl font-semibold text-foreground">
-                              NinoGPT
-                           </CardTitle>
-                           <CardDescription>{headerMessage}</CardDescription>
-                        </div>
-                        <div className="hidden items-center gap-2 sm:flex">
-                           <ThemeToggle className="shrink-0" />
-                           <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={startNewChat}
-                              disabled={isLoadingConversations || isSending}
-                           >
-                              New chat
-                           </Button>
-                        </div>
-                     </div>
-                     {(error || globalError) && (
-                        <p className="mt-3 text-sm text-destructive">
-                           {error ?? globalError}
-                        </p>
-                     )}
-                  </CardHeader>
-                  <CardContent className="flex-1 overflow-y-auto p-6">
-                     <ChatMessageList
-                        messages={messages}
-                        isLoading={isSending || isLoadingConversations}
-                     />
-                  </CardContent>
-                  <CardFooter className="border-t bg-card/60 p-4">
-                     <form
-                        onSubmit={handleSubmit}
-                        className="flex w-full flex-col gap-3 sm:flex-row sm:items-end"
-                     >
-                        <Textarea
-                           value={inputValue}
-                           onChange={(event) =>
-                              setInputValue(event.target.value)
-                           }
-                           onKeyDown={handleKeyDown}
-                           placeholder="Ask anything"
-                           spellCheck
-                           rows={3}
-                           disabled={
-                              isSending ||
-                              isLoadingConversations ||
-                              !activeConversationId
-                           }
+               <div className="flex-1 overflow-hidden">
+                  <div className="mx-auto flex h-full w-full max-w-3xl flex-col">
+                     <div className="flex-1 overflow-y-auto py-4 sm:py-6">
+                        <ChatMessageList
+                           messages={messages}
+                           isLoading={isSending || isLoadingConversations}
                         />
-                        <div className="flex items-center gap-2 self-end sm:self-auto">
+                     </div>
+                     <div className="border-t border-border/60 bg-background/95 p-4 sm:p-6">
+                        <form
+                           onSubmit={handleSubmit}
+                           className="flex w-full items-end gap-3"
+                        >
+                           <Textarea
+                              value={inputValue}
+                              onChange={(event) =>
+                                 setInputValue(event.target.value)
+                              }
+                              onKeyDown={handleKeyDown}
+                              placeholder="Ask anything"
+                              spellCheck
+                              rows={3}
+                              className="min-h-[56px] flex-1 resize-none"
+                              disabled={
+                                 isSending ||
+                                 isLoadingConversations ||
+                                 !activeConversationId
+                              }
+                           />
                            <Button type="submit" disabled={!canSubmit}>
                               {isSending ? 'Sending...' : 'Send'}
                            </Button>
-                        </div>
-                     </form>
-                  </CardFooter>
-               </Card>
-            </section>
+                        </form>
+                     </div>
+                  </div>
+               </div>
+            </div>
          </div>
       </div>
    );

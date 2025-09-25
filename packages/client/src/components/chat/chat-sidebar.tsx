@@ -26,7 +26,7 @@ export function ChatSidebar({
    onDeleteConversation,
 }: ChatSidebarProps) {
    return (
-      <aside className="hidden w-72 flex-col border-r border-border/75 bg-card/50 py-6 shadow-sm sm:fixed sm:inset-y-0 sm:left-0 sm:z-30 sm:flex">
+      <aside className="hidden w-72 flex-col border-r border-border/75 bg-card/50 py-6 shadow-sm sm:fixed sm:inset-y-0 sm:left-0 sm:z-30 sm:flex sm:overflow-y-auto">
          <div className="mb-6 flex items-center justify-between gap-2 px-4">
             <div className="flex flex-col">
                <h2 className="text-sm font-semibold text-muted-foreground">
