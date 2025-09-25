@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 256 256">
+  <defs>
+    <style>
+      :root { --accent: #0a0a0aff; }  /* change to recolor both ring and icon */
+    </style>
+    <filter id="recolor" color-interpolation-filters="sRGB">
+      <feFlood flood-color="var(--accent)" result="paint"/>
+      <feComposite in="paint" in2="SourceAlpha" operator="in" result="colored"/>
+      <feBlend in="colored" in2="SourceGraphic" mode="normal"/>
+    </filter>
+  </defs>
+
+  <!-- Thicker same-color circular ring; radius adjusted so the stroke fits the viewBox -->
+  <circle cx="128" cy="128" r="115" fill="none" stroke="var(--accent)" stroke-width="26" />
+
+  <!-- Larger icon, recentered to stay inside the ring interior -->
+  <image x="50" y="27.5" width="156" height="201"
+         href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHUAAACWCAYAAADg1MeQAAAIFklEQVR4nO2dT27bRhTG3zAUoBgII0BcMIsCzDW6ks/QA0Q+ieUbdNuV1VWPYXXTa1S7ciEBigIoBOxoupGK1JjEQ/J7M+9N9Nu1Mf9AH0b88eOIQ3ThwoULFy5cuHDhwoULajGxT4CTqqrqw+Hw4fSfNRHRaDT6c7vdLqOdVACSDbUoiltjzML1b8aY9fF4XO73+7vApxWEJEOdTCYP1trZS39nrV3u9/ubAKcUlCz2CaApiuLeJ1AiImPMvCiKe+ZTCk5SoU6n07kxZt5lm1Owt0ynFIVkQi3Lcvb09NRr1GVZNi/LcgY+pWgkcU2tqqr+/Pnz30P2YYxZj8fj66Zp1qDTikYSI7Vt28HXRWtt3bbtA+J8YqM+VF/T9cFaW08mE/XBqg61i+n6Yq2daTditaH2MV1ftBuxylCHmK4vmo1Ynf0iTNcXrUasbqQiTNcXrUasKlSk6fqi0YjVhMphur5oM2IVoXKari+ajFh8qCFM1xctRizafkOari8ajFj0SEWabp7nkIfhGoxYbKhI0x2NRtfb7XaJDFayEYsMFWm61trFZrNZERFtt9ultXYB2q9YIxZ3TZ1Op3OUGBljVrvd7vr5///epLSuWGsX0iawiRqpSNP9VqBERFdXV78bY1aI40g0YjEjFWm6xpj1brd7/9Lx2rZ9sNbWiONJMmIxIzW06TZNsx6Px86R3BVpRiwiVLTpnsXoJZqmWadoxNFD5TJdX1I04qjX1BCm60tKRhxtpIYyXV9SMuIoIzW06fqSihFHGakSO12idIw4eKixTNeXFIw4aKixTdcX7UYc7JoqyXR90WrEQUaqNNP1RasRs49Uqabri0YjZh+pUk3XF41GzBqqdNP1RZsRs4WqxXR90WTELNdUjabriwYjho9UrabriwYjho5U7abri3Qjho5U7abri3QjhoWaiun6ItmIIaGmZrq+SDXiwdfUlE3XF2lGPGikVlVV/+iBEuGNuKqqetA+hmyMEqOT6aoMlOg/cboxxqyH7staWx8Oh0G/gx0UKuo6Ktl0fUEacZZls0Hb990QddOswXR9QRmxtbYe8vlGnfdrjFmlEuiZ7Xa7RFxfhxQbvUPN83zdd9uvqKfT6RywHzGUZTlDXJZGo9Gq77ZRR6q1tv7y5cuttF+N9aWqqvrx8RFSIgypDXuH2jTN2lq77Lv9GWtt/fT0dD9U42Nz7oMR+xr6uQ4aqVdXV5DHRtJ+NdaHtm3vEQU/0fDPdVCo6P5Two+L+oDsvfM8vxn6xGbwNRXZf2p6AdWZoihugb33ErEQEkSU0DWZFiMuy3KG6nyNMSvUGjmwh+ToB8d5nt9IvoeVPCEAdkuDfnAs2YiRpkuEr0mh96lN06xHo5HYGQEokKbLUZPCy4fNZrNK2YjRpstxiWFplFI1Yomm64KtJkzNiKWarnP/XDsmSseIJZuuC9ZCPwUjlm66Ltif0mg3Yumm6yLIozetRqzBdF0Ee56qzYi1mK6LoA/JtRixJtN1HjPkwYjkG7E203URfDqLZCPWaLouosxRkmrEGk3XRbSJZ9KMWKvpuog6m1CKEWs2XRfRX+Ic24i1m67zPGKfAFE8I07BdF1EH6lEcYw4FdN1ISJUovBGnIrpuhATKlE4I07JdF2ICpWI34hTM10X4kIl4jPiFE3XhQj7dYE24levXt0B308hxnRdiA2VSOZKx0TyxOg5Ir9+zyCNGIX0QImEh0qENeKhSDRdF+JDJcIacV+kmq4LFaESYY24K5JN14VoUXoO0oh9kW66LtSMVCJsR+yLlOt5F1SFShTWiDWYrgt1oRKFMWItputCZahEvEasyXRdqA2ViMeItZmuC9WhNk2zPh6PvyH3OR6PVQdKpDzUqqpqY8wfyH22bfsg9V0TvqgOFbm6xpnzrAnNwaoNFTl74Tmnt2N/0BqsylCRq2t8C2PM4nA4fOA8BhfqQp1Op3NjzDzEsYwxCykvEemCqu63LMsZ6n26XdDWLKkJNfYsiNevX7/nXqEYhYqvX/TE6z5oMmIVoSInXvfldKsj9n2JXyM+VM5bl65Ya2cajFh0qOCJ1w1iPxqMWGyoDBOv3yGW7TrtbxH7tXrfQ2SoyFuXr9eRG4/H16hgJb+PWFyoyLVdiP4/HeU8HQYVrFQjFhcqsqR3lQanx3VL1AqKEoMVFSrSdL+3YvJ+v787Ho9L0HHElf9iQgUvgb18abXg/X5/B/zJpKjyX0RNGHMJ7Mlk8jeq2EAsPY0geqgMptt54jUyWAnlf9SvX6TpGmN6T/RGGvHj42N0cYoWKsfbUfo+RTmvWZfKrU60UKW9HWWz2ayQRhyz/I8Saqhbl64gjThm+R9clIqiuEV2ul1M15eiKO5RU2ZiGHHQUMGmyxLoGaQR53l+k+Tr1rlKei40l/9BQuUs6bnQXP4HCZW7pOdCa/nPHqpU0/VFY/nPGmrokp4LbeU/m/3GLOm50FL+s4QqoaTnQkP5D//6lVLSc6Gh/IeGKqmk50JD+Q8NVVpJz4X08h8WqvZbl65ILv8hoqShpOdCYvk/OFRNJT0X0sr/QV+/2kp6LqSV/71D1VjScyGt/O8dqtaSngtJ5X+vUH800/VFSvnfOVT0Yj0SJj8jkVD+d7Jf8CqGKk3XF6QRd32JSKeRirpB1my6vux2u/cocer6uXcKFVEwSCzpuUAZcZZlsy5/3+nr9+3bt/90OhsHx+Pxl0+fPv01dD9aePPmzc9Zlv1KRD8N2c/Hjx/f+f7tv0HmvPmE+QMJAAAAAElFTkSuQmCC" filter="url(#recolor)" />
+</svg>
