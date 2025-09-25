@@ -6,8 +6,8 @@ import { chatService } from '../services/chat.service';
 import {
    conversationRepository,
    type ConversationMessage,
-   type ConversationRecord,
 } from '../repositories/conversation.repository';
+import { serializeConversation } from './serializers';
 
 // Implementation details
 const chatSchema = z.object({
@@ -34,26 +34,6 @@ function buildTitleFromPrompt(prompt: string) {
    }
 
    return trimmed.length > 48 ? `${trimmed.slice(0, 45)}...` : trimmed;
-}
-
-function serializeMessage(message: ConversationMessage) {
-   return {
-      id: message.id,
-      role: message.role,
-      content: message.content,
-      createdAt: message.createdAt.toISOString(),
-   };
-}
-
-function serializeConversation(conversation: ConversationRecord) {
-   return {
-      id: conversation.id,
-      title: conversation.title,
-      createdAt: conversation.createdAt.toISOString(),
-      updatedAt: conversation.updatedAt.toISOString(),
-      messageCount: conversation.messages.length,
-      messages: conversation.messages.map(serializeMessage),
-   };
 }
 
 // Public interface

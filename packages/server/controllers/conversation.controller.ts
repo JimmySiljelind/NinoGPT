@@ -1,37 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 
+import { conversationRepository } from '../repositories/conversation.repository';
 import {
-   conversationRepository,
-   type ConversationMessage,
-   type ConversationRecord,
-} from '../repositories/conversation.repository';
-
-function serializeMessage(message: ConversationMessage) {
-   return {
-      id: message.id,
-      role: message.role,
-      content: message.content,
-      createdAt: message.createdAt.toISOString(),
-   };
-}
-
-function serializeConversationSummary(conversation: ConversationRecord) {
-   return {
-      id: conversation.id,
-      title: conversation.title,
-      createdAt: conversation.createdAt.toISOString(),
-      updatedAt: conversation.updatedAt.toISOString(),
-      messageCount: conversation.messages.length,
-   };
-}
-
-function serializeConversation(conversation: ConversationRecord) {
-   return {
-      ...serializeConversationSummary(conversation),
-      messages: conversation.messages.map(serializeMessage),
-   };
-}
+   serializeConversation,
+   serializeConversationSummary,
+} from './serializers';
 
 export const conversationController = {
    list(req: Request, res: Response) {
