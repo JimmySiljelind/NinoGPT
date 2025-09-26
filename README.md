@@ -1,4 +1,4 @@
-# chatbot-app
+# NinoGPT
 
 Install Bun on your device:
 
