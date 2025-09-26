@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import z from 'zod';
 
@@ -10,12 +10,18 @@ import {
 import { serializeConversation } from './serializers';
 
 // Implementation details
+
+const MAX_PROMPT_LENGTH = 2000;
+
 const chatSchema = z.object({
    prompt: z
       .string()
       .trim()
       .min(1, 'Prompt is required')
-      .max(1000, 'Prompt is too long (max 1000 characters)'),
+      .max(
+         MAX_PROMPT_LENGTH,
+         `Prompt is too long. Use no more than ${MAX_PROMPT_LENGTH} characters`
+      ),
    conversationId: z.preprocess((value) => {
       if (typeof value !== 'string') {
          return undefined;
@@ -42,7 +48,13 @@ export const chatController = {
       const parseResult = chatSchema.safeParse(req.body);
 
       if (!parseResult.success) {
-         res.status(400).json({ errors: parseResult.error.format() });
+         const issue = parseResult.error.issues[0];
+         const message = issue?.message ?? 'Invalid chat request.';
+
+         res.status(400).json({
+            error: message,
+            errors: parseResult.error.format(),
+         });
          return;
       }
 
