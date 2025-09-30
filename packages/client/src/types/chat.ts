@@ -13,6 +13,7 @@ export type ChatConversation = {
    createdAt: Date;
    updatedAt: Date;
    messageCount: number;
+   projectId: string | null;
 };
 
 export type ChatConversationDetail = ChatConversation & {

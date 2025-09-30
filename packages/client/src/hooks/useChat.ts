@@ -7,16 +7,25 @@ import {
    getConversation,
    listConversations,
    sendChatMessage,
+   updateConversation,
 } from '@/lib/chat-client';
+import {
+   createProject as createProjectApi,
+   deleteProject as deleteProjectApi,
+   listProjects,
+   renameProject as renameProjectApi,
+} from '@/lib/project-client';
 import { createId } from '@/lib/id';
 import type {
    ChatConversation,
    ChatConversationDetail,
    ChatMessage,
 } from '@/types/chat';
+import type { ChatProject } from '@/types/project';
 
 type UseChatReturn = {
    conversations: ChatConversation[];
+   projects: ChatProject[];
    activeConversationId: string | null;
    messages: ChatMessage[];
    isSending: boolean;
@@ -27,6 +36,14 @@ type UseChatReturn = {
    selectConversation: (conversationId: string) => void;
    startNewConversation: () => Promise<void>;
    deleteConversation: (conversationId: string) => Promise<void>;
+   createProject: (name: string) => Promise<ChatProject>;
+   renameProject: (projectId: string, name: string) => Promise<void>;
+   deleteProject: (projectId: string) => Promise<void>;
+   assignConversationToProject: (
+      conversationId: string,
+      projectId: string | null
+   ) => Promise<void>;
+   renameConversation: (conversationId: string, title: string) => Promise<void>;
    resetChat: () => Promise<void>;
 };
 
@@ -35,7 +52,8 @@ const DEFAULT_CONVERSATION_TITLE = 'New chat';
 function toConversationSummary(
    conversation: ChatConversation | ChatConversationDetail
 ): ChatConversation {
-   const { id, title, createdAt, updatedAt, messageCount } = conversation;
+   const { id, title, createdAt, updatedAt, messageCount, projectId } =
+      conversation;
 
    return {
       id,
@@ -43,6 +61,7 @@ function toConversationSummary(
       createdAt,
       updatedAt,
       messageCount,
+      projectId,
    };
 }
 
@@ -71,8 +90,15 @@ function promoteConversation(
    return [updated, ...rest];
 }
 
+function sortProjectsByUpdatedAt(projects: ChatProject[]) {
+   return [...projects].sort(
+      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+   );
+}
+
 export function useChat(): UseChatReturn {
    const [conversations, setConversations] = useState<ChatConversation[]>([]);
+   const [projects, setProjects] = useState<ChatProject[]>([]);
    const [activeConversationId, setActiveConversationId] = useState<
       string | null
    >(null);
@@ -122,12 +148,17 @@ export function useChat(): UseChatReturn {
          setIsLoadingConversations(true);
 
          try {
-            const list = await listConversations();
+            const [projectList, conversationList] = await Promise.all([
+               listProjects(),
+               listConversations(),
+            ]);
             if (cancelled) {
                return;
             }
 
-            if (list.length === 0) {
+            setProjects(projectList);
+
+            if (conversationList.length === 0) {
                const conversation = await createConversation();
                if (cancelled) {
                   return;
@@ -138,13 +169,13 @@ export function useChat(): UseChatReturn {
                setMessagesMap({ [conversation.id]: [] });
                setErrors({ [conversation.id]: null });
             } else {
-               setConversations(list);
+               setConversations(conversationList);
                setActiveConversationId(
-                  (current) => current ?? list[0]?.id ?? null
+                  (current) => current ?? conversationList[0]?.id ?? null
                );
                setMessagesMap((prev) => {
                   const next = { ...prev };
-                  for (const conversation of list) {
+                  for (const conversation of conversationList) {
                      if (!next[conversation.id]) {
                         next[conversation.id] = [];
                      }
@@ -153,7 +184,7 @@ export function useChat(): UseChatReturn {
                });
                setErrors((prev) => {
                   const next = { ...prev };
-                  for (const conversation of list) {
+                  for (const conversation of conversationList) {
                      if (!(conversation.id in next)) {
                         next[conversation.id] = null;
                      }
@@ -174,6 +205,7 @@ export function useChat(): UseChatReturn {
                   : 'Failed to load conversations.';
             setConversations([]);
             setActiveConversationId(null);
+            setProjects([]);
             setMessagesMap({});
             setErrors({});
             setGlobalError(message);
@@ -334,6 +366,7 @@ export function useChat(): UseChatReturn {
                createdAt: current?.createdAt ?? now,
                updatedAt: now,
                messageCount: (current?.messageCount ?? 0) + 1,
+               projectId: current?.projectId ?? null,
             }))
          );
 
@@ -421,6 +454,10 @@ export function useChat(): UseChatReturn {
             return;
          }
 
+         const target = conversations.find(
+            (conversation) => conversation.id === conversationId
+         );
+
          try {
             await deleteConversationRequest(conversationId);
 
@@ -446,6 +483,22 @@ export function useChat(): UseChatReturn {
                return rest;
             });
 
+            if (target?.projectId) {
+               setProjects((prev) =>
+                  prev.map((project) =>
+                     project.id === target.projectId
+                        ? {
+                             ...project,
+                             conversationCount: Math.max(
+                                project.conversationCount - 1,
+                                0
+                             ),
+                          }
+                        : project
+                  )
+               );
+            }
+
             setGlobalError(null);
 
             if (activeConversationId === conversationId) {
@@ -469,7 +522,224 @@ export function useChat(): UseChatReturn {
             throw error;
          }
       },
+      [activeConversationId, conversations, selectConversation]
+   );
+
+   const createProject = useCallback(async (name: string) => {
+      try {
+         const project = await createProjectApi(name);
+         setProjects((prev) => sortProjectsByUpdatedAt([project, ...prev]));
+         setGlobalError(null);
+         return project;
+      } catch (error) {
+         const message =
+            error instanceof ChatRequestError
+               ? error.message
+               : error instanceof Error
+                 ? error.message
+                 : 'Failed to create project.';
+         setGlobalError(message);
+         throw error;
+      }
+   }, []);
+
+   const renameProject = useCallback(
+      async (projectId: string, name: string) => {
+         try {
+            const project = await renameProjectApi(projectId, name);
+            setProjects((prev) =>
+               sortProjectsByUpdatedAt(
+                  prev.map((item) => (item.id === project.id ? project : item))
+               )
+            );
+            setGlobalError(null);
+         } catch (error) {
+            const message =
+               error instanceof ChatRequestError
+                  ? error.message
+                  : error instanceof Error
+                    ? error.message
+                    : 'Failed to rename project.';
+            setGlobalError(message);
+            throw error;
+         }
+      },
+      []
+   );
+
+   const deleteProject = useCallback(
+      async (projectId: string) => {
+         if (!projectId) {
+            return;
+         }
+
+         try {
+            await deleteProjectApi(projectId);
+
+            const removedConversationIds: string[] = [];
+            let nextActiveId: string | null = activeConversationId;
+
+            setConversations((prev) => {
+               const next = prev.filter((conversation) => {
+                  const shouldRemove = conversation.projectId === projectId;
+
+                  if (shouldRemove) {
+                     removedConversationIds.push(conversation.id);
+                  }
+
+                  return !shouldRemove;
+               });
+
+               if (
+                  removedConversationIds.includes(activeConversationId ?? '')
+               ) {
+                  nextActiveId = next[0]?.id ?? null;
+               }
+
+               return next;
+            });
+
+            setMessagesMap((prev) => {
+               const next = { ...prev };
+               for (const id of removedConversationIds) {
+                  delete next[id];
+               }
+               return next;
+            });
+
+            setErrors((prev) => {
+               const next = { ...prev };
+               for (const id of removedConversationIds) {
+                  delete next[id];
+               }
+               return next;
+            });
+
+            setProjects((prev) =>
+               prev.filter((project) => project.id !== projectId)
+            );
+
+            if (removedConversationIds.includes(activeConversationId ?? '')) {
+               if (nextActiveId) {
+                  selectConversation(nextActiveId);
+               } else {
+                  setActiveConversationId(null);
+               }
+            }
+
+            setGlobalError(null);
+         } catch (error) {
+            const message =
+               error instanceof ChatRequestError
+                  ? error.message
+                  : error instanceof Error
+                    ? error.message
+                    : 'Failed to delete project.';
+            setGlobalError(message);
+            throw error;
+         }
+      },
       [activeConversationId, selectConversation]
+   );
+
+   const assignConversationToProject = useCallback(
+      async (conversationId: string, projectId: string | null) => {
+         if (!conversationId) {
+            return;
+         }
+
+         let previousProjectId: string | null = null;
+
+         try {
+            const conversation = await updateConversation(conversationId, {
+               projectId,
+            });
+
+            setConversations((prev) =>
+               promoteConversation(prev, conversation.id, (current) => {
+                  previousProjectId = current?.projectId ?? null;
+                  return conversation;
+               })
+            );
+
+            if (previousProjectId || conversation.projectId) {
+               setProjects((prev) =>
+                  sortProjectsByUpdatedAt(
+                     prev.map((project) => {
+                        if (
+                           project.id === previousProjectId &&
+                           previousProjectId !== conversation.projectId
+                        ) {
+                           return {
+                              ...project,
+                              conversationCount: Math.max(
+                                 project.conversationCount - 1,
+                                 0
+                              ),
+                           };
+                        }
+
+                        if (
+                           project.id === conversation.projectId &&
+                           previousProjectId !== conversation.projectId
+                        ) {
+                           return {
+                              ...project,
+                              conversationCount: project.conversationCount + 1,
+                           };
+                        }
+
+                        return project;
+                     })
+                  )
+               );
+            }
+
+            setGlobalError(null);
+         } catch (error) {
+            const message =
+               error instanceof ChatRequestError
+                  ? error.message
+                  : error instanceof Error
+                    ? error.message
+                    : 'Failed to update conversation.';
+            setGlobalError(message);
+            throw error;
+         }
+      },
+      []
+   );
+
+   const renameConversation = useCallback(
+      async (conversationId: string, title: string) => {
+         const trimmed = title.trim();
+
+         if (!trimmed) {
+            return;
+         }
+
+         try {
+            const conversation = await updateConversation(conversationId, {
+               title: trimmed,
+            });
+
+            setConversations((prev) =>
+               promoteConversation(prev, conversation.id, () => conversation)
+            );
+
+            setGlobalError(null);
+         } catch (error) {
+            const message =
+               error instanceof ChatRequestError
+                  ? error.message
+                  : error instanceof Error
+                    ? error.message
+                    : 'Failed to rename conversation.';
+            setGlobalError(message);
+            throw error;
+         }
+      },
+      []
    );
 
    const resetChat = useCallback(
@@ -479,6 +749,7 @@ export function useChat(): UseChatReturn {
 
    return {
       conversations,
+      projects,
       activeConversationId,
       messages,
       isSending,
@@ -489,6 +760,11 @@ export function useChat(): UseChatReturn {
       selectConversation,
       startNewConversation,
       deleteConversation,
+      createProject,
+      renameProject,
+      deleteProject,
+      assignConversationToProject,
+      renameConversation,
       resetChat,
    };
 }

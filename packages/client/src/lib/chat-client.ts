@@ -21,6 +21,7 @@ type ConversationSummaryDto = {
    createdAt: string;
    updatedAt: string;
    messageCount?: number;
+   projectId?: string | null;
 };
 
 type ConversationDetailDto = ConversationSummaryDto & {
@@ -54,6 +55,7 @@ function parseConversationSummary(
       createdAt: new Date(dto.createdAt),
       updatedAt: new Date(dto.updatedAt),
       messageCount: dto.messageCount ?? 0,
+      projectId: dto.projectId ?? null,
    };
 }
 
@@ -70,7 +72,7 @@ function parseConversationDetail(
    };
 }
 
-async function makeJsonRequest(
+export async function makeJsonRequest(
    input: RequestInfo,
    init?: RequestInit
 ): Promise<JsonValue> {
@@ -128,9 +130,20 @@ export async function listConversations(): Promise<ChatConversation[]> {
    );
 }
 
-export async function createConversation(): Promise<ChatConversation> {
+export async function createConversation(
+   projectId?: string | null
+): Promise<ChatConversation> {
+   const hasProject = typeof projectId !== 'undefined';
+   const body = hasProject ? JSON.stringify({ projectId }) : undefined;
+
    const data = await makeJsonRequest('/api/conversations', {
       method: 'POST',
+      headers: hasProject
+         ? {
+              'Content-Type': 'application/json',
+           }
+         : undefined,
+      body,
    });
 
    if (!data || !data.conversation) {
@@ -185,4 +198,38 @@ export async function deleteConversation(
    await makeJsonRequest(`/api/conversations/${conversationId}`, {
       method: 'DELETE',
    });
+}
+
+type UpdateConversationPayload = {
+   projectId?: string | null;
+   title?: string;
+};
+
+export async function updateConversation(
+   conversationId: string,
+   payload: UpdateConversationPayload
+): Promise<ChatConversation> {
+   if (!conversationId) {
+      throw new ChatRequestError('Conversation id is required.');
+   }
+
+   const hasPayload = payload && Object.keys(payload).length > 0;
+
+   if (!hasPayload) {
+      throw new ChatRequestError('No updates provided.');
+   }
+
+   const data = await makeJsonRequest(`/api/conversations/${conversationId}`, {
+      method: 'PATCH',
+      headers: {
+         'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+   });
+
+   if (!data || !data.conversation) {
+      throw new ChatRequestError('Failed to update conversation.');
+   }
+
+   return parseConversationSummary(data.conversation as ConversationSummaryDto);
 }

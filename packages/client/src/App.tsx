@@ -12,6 +12,7 @@ import { useChat } from '@/hooks/useChat';
 function App() {
    const {
       conversations,
+      projects,
       activeConversationId,
       messages,
       isSending,
@@ -19,9 +20,14 @@ function App() {
       error,
       globalError,
       sendMessage,
+      selectConversation,
       startNewConversation,
       deleteConversation,
-      selectConversation,
+      createProject,
+      renameProject,
+      deleteProject,
+      assignConversationToProject,
+      renameConversation,
    } = useChat();
    const [inputValue, setInputValue] = useState('');
    const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -118,10 +124,16 @@ function App() {
       <div className="min-h-screen bg-background sm:pl-72">
          <ChatSidebar
             conversations={conversations}
+            projects={projects}
             activeConversationId={activeConversationId}
             onSelectConversation={selectConversation}
             onNewConversation={startNewChat}
             onDeleteConversation={deleteConversation}
+            onCreateProject={createProject}
+            onRenameProject={renameProject}
+            onDeleteProject={deleteProject}
+            onRenameConversation={renameConversation}
+            onAssignConversationToProject={assignConversationToProject}
          />
          <div className="mx-auto flex min-h-screen max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
             <header className="sticky top-0 z-20 flex flex-col gap-3 border-b border-border/60 bg-background/90 py-4 sm:flex-row sm:items-center sm:justify-between sm:py-6 supports-[backdrop-filter]:bg-background/75 supports-[backdrop-filter]:backdrop-blur">
@@ -204,7 +216,7 @@ function App() {
                               placeholder="Ask anything"
                               spellCheck
                               rows={1}
-                              className="min-h-[50px] max-h-[150px] w-full resize-none overflow-y-auto rounded-3xl border border-border/50 bg-card/98 px-4 py-2.5 pr-16 text-base shadow-sm transition focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
+                              className="min-h-[50px] max-h-[150px] w-full resize-none overflow-y-auto rounded-3xl border border-border/50 bg-card/98 px-4 py-2.5 pr-16 text-base shadow-sm transition focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
                               disabled={
                                  isSending ||
                                  isLoadingConversations ||

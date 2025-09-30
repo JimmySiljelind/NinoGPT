@@ -15,6 +15,7 @@ export type ConversationRecord = {
    createdAt: Date;
    updatedAt: Date;
    lastResponseId: string | null;
+   projectId: string | null;
    messages: ConversationMessage[];
 };
 
@@ -26,6 +27,7 @@ type ConversationRow = {
    created_at: string;
    updated_at: string;
    last_response_id: string | null;
+   project_id: string | null;
 };
 
 type MessageRow = {
@@ -37,7 +39,7 @@ type MessageRow = {
 };
 
 const selectConversationStmt = database.query<ConversationRow, { $id: string }>(
-   `SELECT id, title, created_at, updated_at, last_response_id
+   `SELECT id, title, created_at, updated_at, last_response_id, project_id
     FROM conversations
     WHERE id = $id`
 );
@@ -46,7 +48,7 @@ const selectConversationsStmt = database.query<
    ConversationRow,
    Record<string, never>
 >(
-   `SELECT id, title, created_at, updated_at, last_response_id
+   `SELECT id, title, created_at, updated_at, last_response_id, project_id
     FROM conversations
     ORDER BY updated_at DESC`
 );
@@ -69,10 +71,11 @@ const insertConversationStmt = database.query<
       $createdAt: string;
       $updatedAt: string;
       $lastResponseId: string | null;
+      $projectId: string | null;
    }
 >(
-   `INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at, last_response_id)
-    VALUES ($id, $title, $createdAt, $updatedAt, $lastResponseId)`
+   `INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at, last_response_id, project_id)
+    VALUES ($id, $title, $createdAt, $updatedAt, $lastResponseId, $projectId)`
 );
 
 const updateConversationMetaStmt = database.query<
@@ -85,6 +88,20 @@ const updateConversationMetaStmt = database.query<
 >(
    `UPDATE conversations
     SET title = $title,
+        updated_at = $updatedAt
+    WHERE id = $id`
+);
+
+const updateConversationProjectStmt = database.query<
+   Record<string, never>,
+   {
+      $id: string;
+      $projectId: string | null;
+      $updatedAt: string;
+   }
+>(
+   `UPDATE conversations
+    SET project_id = $projectId,
         updated_at = $updatedAt
     WHERE id = $id`
 );
@@ -137,6 +154,12 @@ const deleteConversationStmt = database.query<
     WHERE id = $id`
 );
 
+const selectProjectStmt = database.query<{ id: string }, { $id: string }>(
+   `SELECT id
+    FROM projects
+    WHERE id = $id`
+);
+
 function rowToConversation(
    row: ConversationRow,
    messages: ConversationMessage[]
@@ -147,6 +170,7 @@ function rowToConversation(
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
       lastResponseId: row.last_response_id,
+      projectId: row.project_id ?? null,
       messages,
    };
 }
@@ -181,7 +205,10 @@ function fetchConversation(conversationId: string): ConversationRecord | null {
    return rowToConversation(row, messages);
 }
 
-function createConversationIfMissing(conversationId: string) {
+function createConversationIfMissing(
+   conversationId: string,
+   projectId: string | null = null
+) {
    const now = new Date().toISOString();
 
    insertConversationStmt.run({
@@ -190,6 +217,7 @@ function createConversationIfMissing(conversationId: string) {
       $createdAt: now,
       $updatedAt: now,
       $lastResponseId: null,
+      $projectId: projectId,
    });
 }
 
@@ -216,8 +244,8 @@ export const conversationRepository = {
       return rows.map((row) => rowToConversation(row, fetchMessages(row.id)));
    },
 
-   create(conversationId: string) {
-      createConversationIfMissing(conversationId);
+   create(conversationId: string, projectId: string | null = null) {
+      createConversationIfMissing(conversationId, projectId);
       const conversation = fetchConversation(conversationId);
 
       if (!conversation) {
@@ -324,5 +352,34 @@ export const conversationRepository = {
 
       deleteConversationStmt.run({ $id: conversationId });
       return true;
+   },
+
+   setProject(conversationId: string, projectId: string | null) {
+      const existing = selectConversationStmt.get({
+         $id: conversationId,
+      }) as ConversationRow | undefined | null;
+
+      if (!existing) {
+         return null;
+      }
+
+      if (projectId) {
+         const project = selectProjectStmt.get({ $id: projectId }) as
+            | { id: string }
+            | undefined
+            | null;
+
+         if (!project) {
+            throw new Error('Project not found when assigning conversation.');
+         }
+      }
+
+      updateConversationProjectStmt.run({
+         $id: conversationId,
+         $projectId: projectId ?? null,
+         $updatedAt: new Date().toISOString(),
+      });
+
+      return fetchConversation(conversationId);
    },
 };

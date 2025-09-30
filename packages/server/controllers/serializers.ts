@@ -2,6 +2,7 @@ import type {
    ConversationMessage,
    ConversationRecord,
 } from '../repositories/conversation.repository';
+import type { ProjectRecord } from '../repositories/project.repository';
 
 type SerializedConversationMessage = {
    id: string;
@@ -16,10 +17,19 @@ type SerializedConversationSummary = {
    createdAt: string;
    updatedAt: string;
    messageCount: number;
+   projectId: string | null;
 };
 
 type SerializedConversation = SerializedConversationSummary & {
    messages: SerializedConversationMessage[];
+};
+
+export type SerializedProject = {
+   id: string;
+   name: string;
+   createdAt: string;
+   updatedAt: string;
+   conversationCount: number;
 };
 
 export function serializeConversationMessage(
@@ -42,6 +52,7 @@ export function serializeConversationSummary(
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
       messageCount: conversation.messages.length,
+      projectId: conversation.projectId,
    };
 }
 
@@ -51,5 +62,15 @@ export function serializeConversation(
    return {
       ...serializeConversationSummary(conversation),
       messages: conversation.messages.map(serializeConversationMessage),
+   };
+}
+
+export function serializeProject(project: ProjectRecord): SerializedProject {
+   return {
+      id: project.id,
+      name: project.name,
+      createdAt: project.createdAt.toISOString(),
+      updatedAt: project.updatedAt.toISOString(),
+      conversationCount: project.conversationCount,
    };
 }
