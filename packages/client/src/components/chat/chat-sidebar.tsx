@@ -446,7 +446,7 @@ export function ChatSidebar({
                                  <button
                                     type="button"
                                     onClick={() => toggleProject(project.id)}
-                                    className="flex flex-1 items-center gap-2 rounded-l-lg px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                    className="flex flex-1 items-center gap-2 rounded-l-lg px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 cursor-pointer"
                                     aria-expanded={isExpanded}
                                  >
                                     {isExpanded ? (
