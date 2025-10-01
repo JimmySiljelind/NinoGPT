@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { RenameDialog } from '@/components/chat/rename-dialog';
 import {
    DropdownMenu,
    DropdownMenuContent,
@@ -48,6 +49,10 @@ type ChatSidebarProps = {
    ) => Promise<void> | void;
 };
 
+type RenameTarget =
+   | { type: 'project'; project: ChatProject }
+   | { type: 'conversation'; conversation: ChatConversation };
+
 const PROJECT_PROMPT_MESSAGE =
    'Delete this project and all chats saved inside it? This action cannot be undone.';
 
@@ -67,6 +72,9 @@ export function ChatSidebar({
    const [expandedProjects, setExpandedProjects] = useState<
       Record<string, boolean>
    >({});
+   const [renameTarget, setRenameTarget] = useState<RenameTarget | null>(null);
+   const [renameError, setRenameError] = useState<string | null>(null);
+   const [isRenaming, setIsRenaming] = useState(false);
 
    useEffect(() => {
       setExpandedProjects((prev) => {
@@ -107,6 +115,71 @@ export function ChatSidebar({
    const totalConversations = conversations.length;
    const unassignedConversations = conversationsByProject.get(null) ?? [];
 
+   const resetRenameState = () => {
+      setRenameTarget(null);
+      setRenameError(null);
+   };
+
+   const handleRenameSubmit = async (value: string) => {
+      if (!renameTarget) {
+         return;
+      }
+
+      const trimmed = value.trim();
+      if (!trimmed) {
+         setRenameError('Name cannot be empty.');
+         return;
+      }
+
+      const currentName =
+         renameTarget.type === 'project'
+            ? renameTarget.project.name
+            : renameTarget.conversation.title;
+
+      if (trimmed === currentName) {
+         resetRenameState();
+         return;
+      }
+
+      setRenameError(null);
+      setIsRenaming(true);
+
+      try {
+         if (renameTarget.type === 'project') {
+            await Promise.resolve(
+               onRenameProject(renameTarget.project.id, trimmed)
+            );
+         } else {
+            await Promise.resolve(
+               onRenameConversation(renameTarget.conversation.id, trimmed)
+            );
+         }
+         resetRenameState();
+      } catch (error) {
+         console.error('Failed to rename item.', error);
+         setRenameError('We could not save the new name. Please try again.');
+      } finally {
+         setIsRenaming(false);
+      }
+   };
+
+   const handleRenameCancel = () => {
+      if (isRenaming) {
+         return;
+      }
+      resetRenameState();
+   };
+
+   const openRenameProjectDialog = (project: ChatProject) => {
+      setRenameError(null);
+      setRenameTarget({ type: 'project', project });
+   };
+
+   const openRenameConversationDialog = (conversation: ChatConversation) => {
+      setRenameError(null);
+      setRenameTarget({ type: 'conversation', conversation });
+   };
+
    const handleCreateProjectClick = () => {
       const name = window.prompt('Create project', '');
 
@@ -120,13 +193,7 @@ export function ChatSidebar({
    };
 
    const handleRenameProject = (project: ChatProject) => {
-      const name = window.prompt('Rename project', project.name);
-
-      if (!name || !name.trim() || name.trim() === project.name) {
-         return;
-      }
-
-      void onRenameProject(project.id, name.trim());
+      openRenameProjectDialog(project);
    };
 
    const handleDeleteProjectClick = (project: ChatProject) => {
@@ -173,13 +240,7 @@ export function ChatSidebar({
       };
 
       const handleRenameConversation = () => {
-         const name = window.prompt('Rename chat', conversation.title);
-
-         if (!name || !name.trim() || name.trim() === conversation.title) {
-            return;
-         }
-
-         void onRenameConversation(conversation.id, name.trim());
+         openRenameConversationDialog(conversation);
       };
 
       return (
@@ -307,6 +368,22 @@ export function ChatSidebar({
          </li>
       );
    };
+   const renameDialogConfig = renameTarget
+      ? renameTarget.type === 'project'
+         ? {
+              title: 'Rename project',
+              description:
+                 'Update the project name to keep your workspace organized',
+              confirmLabel: 'Save',
+              initialValue: renameTarget.project.name,
+           }
+         : {
+              title: 'Rename chat',
+              description: 'Choose a title for this conversation',
+              confirmLabel: 'Save',
+              initialValue: renameTarget.conversation.title,
+           }
+      : null;
 
    return (
       <aside className="hidden w-72 flex-col border-r border-border/75 bg-card/50 py-6 shadow-sm sm:fixed sm:inset-y-0 sm:left-0 sm:z-30 sm:flex sm:max-h-screen sm:overflow-hidden">
@@ -492,6 +569,17 @@ export function ChatSidebar({
                </DropdownMenuContent>
             </DropdownMenu>
          </div>
+         <RenameDialog
+            open={Boolean(renameTarget)}
+            title={renameDialogConfig?.title ?? 'Rename'}
+            description={renameDialogConfig?.description}
+            initialValue={renameDialogConfig?.initialValue ?? ''}
+            confirmLabel={renameDialogConfig?.confirmLabel ?? 'Save'}
+            isSubmitting={isRenaming}
+            error={renameError}
+            onSubmit={handleRenameSubmit}
+            onCancel={handleRenameCancel}
+         />
       </aside>
    );
 }

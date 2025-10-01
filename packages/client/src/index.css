@@ -133,4 +133,10 @@
          transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
       }
    }
+   input:focus,
+   input:focus-visible {
+      border-color: var(--input) !important;
+      outline: none !important;
+      box-shadow: none !important;
+   }
 }
