@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
    getCurrentUser,
@@ -49,6 +49,11 @@ export function useAuth(): UseAuthReturn {
    const [isLoading, setIsLoading] = useState(true);
    const [isAuthenticating, setIsAuthenticating] = useState(false);
    const [error, setError] = useState<string | null>(null);
+   const userRef = useRef<AppUser | null>(null);
+
+   useEffect(() => {
+      userRef.current = user;
+   }, [user]);
 
    useEffect(() => {
       let mounted = true;
@@ -82,8 +87,14 @@ export function useAuth(): UseAuthReturn {
       }
 
       const handleUnauthorized = () => {
-         setUser(null);
+         if (!userRef.current) {
+            setIsAuthenticating(false);
+            return;
+         }
+
          setError('Your session has expired. Please sign in again.');
+         setUser(null);
+         userRef.current = null;
          setIsAuthenticating(false);
       };
 

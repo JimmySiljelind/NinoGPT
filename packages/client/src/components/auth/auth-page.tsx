@@ -159,7 +159,7 @@ export function AuthPage({
             <div className="w-full max-w-md space-y-8 rounded-2xl border border-border/70 bg-card/80 p-8 shadow-xl backdrop-blur">
                <div className="space-y-2 text-center">
                   <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-                     {mode === 'login' ? 'Welcome back' : 'Create your account'}
+                     {mode === 'login' ? 'NinoGPT' : 'Create your account'}
                   </h1>
                   <p className="text-sm text-muted-foreground">
                      {mode === 'login'
@@ -253,7 +253,7 @@ export function AuthPage({
                                     name: event.target.value,
                                  }))
                               }
-                              placeholder="Ada Lovelace"
+                              placeholder="Enter name"
                               required
                               className={sharedClassName}
                               autoComplete="name"
@@ -273,7 +273,7 @@ export function AuthPage({
                                        phoneCountry: event.target.value,
                                     }))
                                  }
-                                 className="h-10 w-20 rounded-md border border-input bg-card/60 px-2 text-sm shadow-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                 className={selectClassName}
                                  aria-label="Select country code"
                               >
                                  {PHONE_COUNTRY_OPTIONS.map((option) => (
@@ -293,7 +293,7 @@ export function AuthPage({
                                        phone: event.target.value,
                                     }))
                                  }
-                                 placeholder="5550101234"
+                                 placeholder="07XXXXXXXX"
                                  required
                                  className={`${sharedClassName} sm:flex-1`}
                                  autoComplete="tel-national"
@@ -319,7 +319,7 @@ export function AuthPage({
                                  email: event.target.value,
                               }))
                            }
-                           placeholder="you@example.com"
+                           placeholder="name@example.com"
                            required
                            className={sharedClassName}
                            autoComplete="email"
@@ -358,10 +358,10 @@ export function AuthPage({
                               }))
                            }
                            required
-                           className={`${sharedClassName} text-center`}
+                           className={`${sharedClassName}`}
                         />
                         <p className="text-xs text-muted-foreground">
-                           We only use this to confirm you meet the minimum age
+                           This is used to confirm you meet the minimum age
                            requirement.
                         </p>
                      </div>
