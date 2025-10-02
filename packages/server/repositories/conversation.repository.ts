@@ -11,6 +11,7 @@ export type ConversationMessage = {
 
 export type ConversationRecord = {
    id: string;
+   userId: string;
    title: string;
    createdAt: Date;
    updatedAt: Date;
@@ -23,6 +24,7 @@ export const DEFAULT_CONVERSATION_TITLE = 'New chat';
 
 type ConversationRow = {
    id: string;
+   user_id: string;
    title: string;
    created_at: string;
    updated_at: string;
@@ -38,18 +40,34 @@ type MessageRow = {
    created_at: string;
 };
 
-const selectConversationStmt = database.query<ConversationRow, { $id: string }>(
-   `SELECT id, title, created_at, updated_at, last_response_id, project_id
+const selectConversationStmt = database.query<
+   ConversationRow,
+   { $id: string; $userId: string }
+>(
+   `SELECT id,
+           user_id,
+           title,
+           created_at,
+           updated_at,
+           last_response_id,
+           project_id
     FROM conversations
-    WHERE id = $id`
+    WHERE id = $id AND user_id = $userId`
 );
 
 const selectConversationsStmt = database.query<
    ConversationRow,
-   Record<string, never>
+   { $userId: string }
 >(
-   `SELECT id, title, created_at, updated_at, last_response_id, project_id
+   `SELECT id,
+           user_id,
+           title,
+           created_at,
+           updated_at,
+           last_response_id,
+           project_id
     FROM conversations
+    WHERE user_id = $userId
     ORDER BY updated_at DESC`
 );
 
@@ -57,7 +75,11 @@ const selectMessagesStmt = database.query<
    MessageRow,
    { $conversationId: string }
 >(
-   `SELECT id, conversation_id, role, content, created_at
+   `SELECT id,
+           conversation_id,
+           role,
+           content,
+           created_at
     FROM messages
     WHERE conversation_id = $conversationId
     ORDER BY created_at ASC`
@@ -67,6 +89,7 @@ const insertConversationStmt = database.query<
    Record<string, never>,
    {
       $id: string;
+      $userId: string;
       $title: string;
       $createdAt: string;
       $updatedAt: string;
@@ -74,14 +97,15 @@ const insertConversationStmt = database.query<
       $projectId: string | null;
    }
 >(
-   `INSERT OR IGNORE INTO conversations (id, title, created_at, updated_at, last_response_id, project_id)
-    VALUES ($id, $title, $createdAt, $updatedAt, $lastResponseId, $projectId)`
+   `INSERT OR IGNORE INTO conversations (id, user_id, title, created_at, updated_at, last_response_id, project_id)
+    VALUES ($id, $userId, $title, $createdAt, $updatedAt, $lastResponseId, $projectId)`
 );
 
 const updateConversationMetaStmt = database.query<
    Record<string, never>,
    {
       $id: string;
+      $userId: string;
       $title: string;
       $updatedAt: string;
    }
@@ -89,13 +113,14 @@ const updateConversationMetaStmt = database.query<
    `UPDATE conversations
     SET title = $title,
         updated_at = $updatedAt
-    WHERE id = $id`
+    WHERE id = $id AND user_id = $userId`
 );
 
 const updateConversationProjectStmt = database.query<
    Record<string, never>,
    {
       $id: string;
+      $userId: string;
       $projectId: string | null;
       $updatedAt: string;
    }
@@ -103,25 +128,27 @@ const updateConversationProjectStmt = database.query<
    `UPDATE conversations
     SET project_id = $projectId,
         updated_at = $updatedAt
-    WHERE id = $id`
+    WHERE id = $id AND user_id = $userId`
 );
 
 const updateConversationUpdatedAtStmt = database.query<
    Record<string, never>,
    {
       $id: string;
+      $userId: string;
       $updatedAt: string;
    }
 >(
    `UPDATE conversations
     SET updated_at = $updatedAt
-    WHERE id = $id`
+    WHERE id = $id AND user_id = $userId`
 );
 
 const updateLastResponseIdStmt = database.query<
    Record<string, never>,
    {
       $id: string;
+      $userId: string;
       $lastResponseId: string;
       $updatedAt: string;
    }
@@ -129,7 +156,7 @@ const updateLastResponseIdStmt = database.query<
    `UPDATE conversations
     SET last_response_id = $lastResponseId,
         updated_at = $updatedAt
-    WHERE id = $id`
+    WHERE id = $id AND user_id = $userId`
 );
 
 const insertMessageStmt = database.query<
@@ -148,16 +175,19 @@ const insertMessageStmt = database.query<
 
 const deleteConversationStmt = database.query<
    Record<string, never>,
-   { $id: string }
+   { $id: string; $userId: string }
 >(
    `DELETE FROM conversations
-    WHERE id = $id`
+    WHERE id = $id AND user_id = $userId`
 );
 
-const selectProjectStmt = database.query<{ id: string }, { $id: string }>(
+const selectProjectStmt = database.query<
+   { id: string },
+   { $id: string; $userId: string }
+>(
    `SELECT id
     FROM projects
-    WHERE id = $id`
+    WHERE id = $id AND user_id = $userId`
 );
 
 function rowToConversation(
@@ -166,6 +196,7 @@ function rowToConversation(
 ): ConversationRecord {
    return {
       id: row.id,
+      userId: row.user_id,
       title: row.title,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
@@ -191,11 +222,14 @@ function fetchMessages(conversationId: string) {
    return rows.map(rowToMessage);
 }
 
-function fetchConversation(conversationId: string): ConversationRecord | null {
-   const row = selectConversationStmt.get({ $id: conversationId }) as
-      | ConversationRow
-      | undefined
-      | null;
+function fetchConversation(
+   userId: string,
+   conversationId: string
+): ConversationRecord | null {
+   const row = selectConversationStmt.get({
+      $id: conversationId,
+      $userId: userId,
+   }) as ConversationRow | undefined | null;
 
    if (!row) {
       return null;
@@ -207,12 +241,14 @@ function fetchConversation(conversationId: string): ConversationRecord | null {
 
 function createConversationIfMissing(
    conversationId: string,
+   userId: string,
    projectId: string | null = null
 ) {
    const now = new Date().toISOString();
 
    insertConversationStmt.run({
       $id: conversationId,
+      $userId: userId,
       $title: DEFAULT_CONVERSATION_TITLE,
       $createdAt: now,
       $updatedAt: now,
@@ -222,31 +258,18 @@ function createConversationIfMissing(
 }
 
 export const conversationRepository = {
-   ensure(conversationId: string) {
-      createConversationIfMissing(conversationId);
-      const conversation = fetchConversation(conversationId);
+   list(userId: string) {
+      const rows = selectConversationsStmt.all({
+         $userId: userId,
+      }) as ConversationRow[];
 
-      if (!conversation) {
-         throw new Error('Conversation could not be ensured.');
-      }
-
-      return conversation;
-   },
-
-   get(conversationId: string) {
-      return fetchConversation(conversationId);
-   },
-
-   list() {
-      const rows = selectConversationsStmt.all(
-         {} as Record<string, never>
-      ) as ConversationRow[];
       return rows.map((row) => rowToConversation(row, fetchMessages(row.id)));
    },
 
-   create(conversationId: string, projectId: string | null = null) {
-      createConversationIfMissing(conversationId, projectId);
-      const conversation = fetchConversation(conversationId);
+   create(userId: string, conversationId: string, projectId: string | null) {
+      createConversationIfMissing(conversationId, userId, projectId);
+
+      const conversation = fetchConversation(userId, conversationId);
 
       if (!conversation) {
          throw new Error('Conversation could not be created.');
@@ -255,7 +278,40 @@ export const conversationRepository = {
       return conversation;
    },
 
-   addMessage(conversationId: string, message: ConversationMessage) {
+   get(userId: string, conversationId: string) {
+      return fetchConversation(userId, conversationId);
+   },
+
+   ensure(
+      userId: string,
+      conversationId: string,
+      projectId: string | null = null
+   ) {
+      createConversationIfMissing(conversationId, userId, projectId);
+
+      const conversation = fetchConversation(userId, conversationId);
+
+      if (!conversation) {
+         throw new Error('Conversation could not be ensured.');
+      }
+
+      return conversation;
+   },
+
+   addMessage(
+      userId: string,
+      conversationId: string,
+      message: ConversationMessage
+   ) {
+      const conversation = selectConversationStmt.get({
+         $id: conversationId,
+         $userId: userId,
+      }) as ConversationRow | undefined | null;
+
+      if (!conversation) {
+         throw new Error('Conversation not found when adding message.');
+      }
+
       insertMessageStmt.run({
          $id: message.id,
          $conversationId: conversationId,
@@ -266,24 +322,26 @@ export const conversationRepository = {
 
       updateConversationUpdatedAtStmt.run({
          $id: conversationId,
+         $userId: userId,
          $updatedAt: message.createdAt.toISOString(),
       });
    },
 
-   updateTitle(conversationId: string, title: string) {
+   updateTitle(userId: string, conversationId: string, title: string) {
       if (!title.trim()) {
-         return fetchConversation(conversationId);
+         return fetchConversation(userId, conversationId);
       }
 
       const updatedAt = new Date().toISOString();
 
       updateConversationMetaStmt.run({
          $id: conversationId,
+         $userId: userId,
          $title: title.trim(),
          $updatedAt: updatedAt,
       });
 
-      const conversation = fetchConversation(conversationId);
+      const conversation = fetchConversation(userId, conversationId);
 
       if (!conversation) {
          throw new Error('Conversation not found after updating title.');
@@ -292,11 +350,11 @@ export const conversationRepository = {
       return conversation;
    },
 
-   updateTitleIfDefault(conversationId: string, title: string) {
-      const current = selectConversationStmt.get({ $id: conversationId }) as
-         | ConversationRow
-         | undefined
-         | null;
+   updateTitleIfDefault(userId: string, conversationId: string, title: string) {
+      const current = selectConversationStmt.get({
+         $id: conversationId,
+         $userId: userId,
+      }) as ConversationRow | undefined | null;
 
       if (!current) {
          throw new Error('Conversation not found when updating title.');
@@ -307,12 +365,13 @@ export const conversationRepository = {
 
          updateConversationMetaStmt.run({
             $id: conversationId,
+            $userId: userId,
             $title: title.trim(),
             $updatedAt: updatedAt,
          });
       }
 
-      const conversation = fetchConversation(conversationId);
+      const conversation = fetchConversation(userId, conversationId);
 
       if (!conversation) {
          throw new Error('Conversation not found after update.');
@@ -321,42 +380,59 @@ export const conversationRepository = {
       return conversation;
    },
 
-   getMessages(conversationId: string) {
-      return fetchMessages(conversationId);
+   getMessages(userId: string, conversationId: string) {
+      const conversation = fetchConversation(userId, conversationId);
+
+      if (!conversation) {
+         throw new Error('Conversation not found when fetching messages.');
+      }
+
+      return conversation.messages;
    },
 
-   getLastResponseId(conversationId: string) {
-      const row = selectConversationStmt.get({ $id: conversationId }) as
-         | ConversationRow
-         | undefined
-         | null;
+   getLastResponseId(userId: string, conversationId: string) {
+      const row = selectConversationStmt.get({
+         $id: conversationId,
+         $userId: userId,
+      }) as ConversationRow | undefined | null;
       return row?.last_response_id ?? null;
    },
 
-   setLastResponseId(conversationId: string, responseId: string) {
+   setLastResponseId(
+      userId: string,
+      conversationId: string,
+      responseId: string
+   ) {
       updateLastResponseIdStmt.run({
          $id: conversationId,
+         $userId: userId,
          $lastResponseId: responseId,
          $updatedAt: new Date().toISOString(),
       });
    },
 
-   delete(conversationId: string) {
+   delete(userId: string, conversationId: string) {
       const existing = selectConversationStmt.get({
          $id: conversationId,
+         $userId: userId,
       }) as ConversationRow | undefined | null;
 
       if (!existing) {
          return false;
       }
 
-      deleteConversationStmt.run({ $id: conversationId });
+      deleteConversationStmt.run({ $id: conversationId, $userId: userId });
       return true;
    },
 
-   setProject(conversationId: string, projectId: string | null) {
+   setProject(
+      userId: string,
+      conversationId: string,
+      projectId: string | null
+   ) {
       const existing = selectConversationStmt.get({
          $id: conversationId,
+         $userId: userId,
       }) as ConversationRow | undefined | null;
 
       if (!existing) {
@@ -364,10 +440,10 @@ export const conversationRepository = {
       }
 
       if (projectId) {
-         const project = selectProjectStmt.get({ $id: projectId }) as
-            | { id: string }
-            | undefined
-            | null;
+         const project = selectProjectStmt.get({
+            $id: projectId,
+            $userId: userId,
+         }) as { id: string } | undefined | null;
 
          if (!project) {
             throw new Error('Project not found when assigning conversation.');
@@ -376,10 +452,11 @@ export const conversationRepository = {
 
       updateConversationProjectStmt.run({
          $id: conversationId,
+         $userId: userId,
          $projectId: projectId ?? null,
          $updatedAt: new Date().toISOString(),
       });
 
-      return fetchConversation(conversationId);
+      return fetchConversation(userId, conversationId);
    },
 };

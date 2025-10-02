@@ -17,7 +17,7 @@ Do not answer messages that include personal information.
 Do not answer messages that include any form of religious content.
 Do not answer messages that include any form of political content.
 Always keep your answers under ${RESPONSE_TOKEN_LIMIT} tokens. 
-If you judge that the answer will exceed the limit, prioritize the 3 – 5 most critical points and omit the rest.
+If you judge that the answer will exceed the limit, prioritize the 3-5 most critical points and omit the rest.
 Use continuous prose with short sentences.
 Format every code snippet inside fenced code blocks, including a language identifier when known, so it reads like code in an IDE.
 End at a complete sentence.`;
@@ -31,6 +31,7 @@ type ChatResponse = {
 export const chatService = {
    async sendMessage(
       prompt: string,
+      userId: string,
       conversationId: string
    ): Promise<ChatResponse> {
       const response = await client.responses.create({
@@ -40,11 +41,15 @@ export const chatService = {
          temperature: 0.2,
          max_output_tokens: RESPONSE_TOKEN_LIMIT,
          previous_response_id:
-            conversationRepository.getLastResponseId(conversationId) ||
+            conversationRepository.getLastResponseId(userId, conversationId) ||
             undefined,
       });
 
-      conversationRepository.setLastResponseId(conversationId, response.id);
+      conversationRepository.setLastResponseId(
+         userId,
+         conversationId,
+         response.id
+      );
 
       return {
          id: response.id,

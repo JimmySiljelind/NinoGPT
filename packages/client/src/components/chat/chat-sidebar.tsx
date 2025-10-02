@@ -19,6 +19,7 @@ import {
    DropdownMenu,
    DropdownMenuContent,
    DropdownMenuItem,
+   DropdownMenuLabel,
    DropdownMenuSeparator,
    DropdownMenuSub,
    DropdownMenuSubContent,
@@ -47,6 +48,9 @@ type ChatSidebarProps = {
       conversationId: string,
       projectId: string | null
    ) => Promise<void> | void;
+   currentUserName: string;
+   currentUserEmail: string;
+   onLogout: () => Promise<void> | void;
 };
 
 type RenameTarget =
@@ -68,6 +72,9 @@ export function ChatSidebar({
    onDeleteProject,
    onRenameConversation,
    onAssignConversationToProject,
+   currentUserName,
+   currentUserEmail,
+   onLogout,
 }: ChatSidebarProps) {
    const [expandedProjects, setExpandedProjects] = useState<
       Record<string, boolean>
@@ -551,18 +558,40 @@ export function ChatSidebar({
                   <Button
                      type="button"
                      variant="ghost"
-                     className="w-full justify-between text-sm border hover:border-border/60 focus-visible:ring-0"
+                     className="w-full justify-between border text-left text-sm hover:border-border/60 focus-visible:ring-0  pb-6 pt-5"
+                     aria-label={`Open account menu for ${currentUserName}`}
                   >
-                     <span>Account</span>
+                     <div className="flex flex-col">
+                        <span className="font-medium text-foreground">
+                           {currentUserName}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                           {currentUserEmail}
+                        </span>
+                     </div>
                      <ChevronRight className="size-4 text-muted-foreground" />
                   </Button>
                </DropdownMenuTrigger>
-               <DropdownMenuContent align="end" className="w-40">
+               <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuLabel>
+                     <div className="text-sm font-medium text-foreground">
+                        {currentUserName}
+                     </div>
+                     <div className="text-xs text-muted-foreground">
+                        {currentUserEmail}
+                     </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem className="cursor-pointer gap-2">
                      <Settings className="size-4" aria-hidden />
                      <span>Settings</span>
                   </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer gap-2 text-destructive focus:text-destructive">
+                  <DropdownMenuItem
+                     className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+                     onSelect={() => {
+                        void onLogout();
+                     }}
+                  >
                      <LogOut className="size-4" aria-hidden />
                      <span>Log out</span>
                   </DropdownMenuItem>

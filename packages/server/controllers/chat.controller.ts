@@ -1,4 +1,4 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import z from 'zod';
 
@@ -8,8 +8,6 @@ import {
    type ConversationMessage,
 } from '../repositories/conversation.repository';
 import { serializeConversation } from './serializers';
-
-// Implementation details
 
 const MAX_PROMPT_LENGTH = 2000;
 
@@ -42,9 +40,23 @@ function buildTitleFromPrompt(prompt: string) {
    return trimmed.length > 48 ? `${trimmed.slice(0, 45)}...` : trimmed;
 }
 
-// Public interface
+function ensureUser(req: Request, res: Response): string | null {
+   if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated.' });
+      return null;
+   }
+
+   return req.user.id;
+}
+
 export const chatController = {
    async sendMessage(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const parseResult = chatSchema.safeParse(req.body);
 
       if (!parseResult.success) {
@@ -64,12 +76,17 @@ export const chatController = {
 
       const title = buildTitleFromPrompt(prompt) ?? undefined;
 
-      conversationRepository.ensure(activeConversationId);
+      const conversation = conversationRepository.ensure(
+         userId,
+         activeConversationId
+      );
+
       conversationRepository.updateTitleIfDefault(
+         userId,
          activeConversationId,
          title ?? ''
       );
-      conversationRepository.addMessage(activeConversationId, {
+      conversationRepository.addMessage(userId, activeConversationId, {
          id: randomUUID(),
          role: 'user',
          content: prompt,
@@ -79,6 +96,7 @@ export const chatController = {
       try {
          const response = await chatService.sendMessage(
             prompt,
+            userId,
             activeConversationId
          );
 
@@ -90,27 +108,36 @@ export const chatController = {
          };
 
          conversationRepository.addMessage(
+            userId,
             activeConversationId,
             assistantMessage
          );
 
-         const conversation = conversationRepository.get(activeConversationId);
+         const updatedConversation = conversationRepository.get(
+            userId,
+            activeConversationId
+         );
 
-         if (!conversation) {
+         if (!updatedConversation) {
             res.status(500).json({
                error: 'Conversation could not be retrieved.',
             });
             return;
          }
 
-         res.json({ conversation: serializeConversation(conversation) });
+         res.json({
+            conversation: serializeConversation(updatedConversation),
+         });
       } catch (error) {
-         const conversation = conversationRepository.get(activeConversationId);
+         const failedConversation = conversationRepository.get(
+            userId,
+            activeConversationId
+         );
 
          res.status(500).json({
             error: 'Failed to generate a response.',
-            conversation: conversation
-               ? serializeConversation(conversation)
+            conversation: failedConversation
+               ? serializeConversation(failedConversation)
                : undefined,
          });
       }

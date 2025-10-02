@@ -5,13 +5,20 @@ import type {
    ChatRole,
 } from '@/types/chat';
 
+type ChatErrorOptions = {
+   conversation?: ChatConversationDetail;
+   status?: number;
+};
+
 export class ChatRequestError extends Error {
    conversation?: ChatConversationDetail;
+   status?: number;
 
-   constructor(message: string, conversation?: ChatConversationDetail) {
+   constructor(message: string, options: ChatErrorOptions = {}) {
       super(message);
       this.name = 'ChatRequestError';
-      this.conversation = conversation;
+      this.conversation = options.conversation;
+      this.status = options.status;
    }
 }
 
@@ -84,6 +91,7 @@ export async function makeJsonRequest(
 
       const response = await fetch(input, {
          ...init,
+         credentials: init?.credentials ?? 'include',
          headers,
       });
 
@@ -103,7 +111,14 @@ export async function makeJsonRequest(
                ? (data.error as string)
                : 'Request failed.';
 
-         throw new ChatRequestError(message, conversation);
+         if (response.status === 401 && typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+         }
+
+         throw new ChatRequestError(message, {
+            conversation,
+            status: response.status,
+         });
       }
 
       return data;

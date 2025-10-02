@@ -8,15 +8,23 @@
       "dev": "bun --watch run index.ts"
    },
    "devDependencies": {
+      "@types/bcryptjs": "^2.4.6",
       "@types/bun": "latest",
-      "@types/express": "^5.0.3"
+      "@types/cookie-parser": "^1.4.6",
+      "@types/cors": "^2.8.17",
+      "@types/express": "^5.0.3",
+      "@types/jsonwebtoken": "^9.0.7"
    },
    "peerDependencies": {
       "typescript": "^5"
    },
    "dependencies": {
+      "bcryptjs": "^2.4.3",
+      "cookie-parser": "^1.4.7",
+      "cors": "^2.8.5",
       "dotenv": "^17.2.2",
       "express": "^5.1.0",
+      "jsonwebtoken": "^9.0.2",
       "openai": "^5.22.0",
       "zod": "^4.1.11"
    }

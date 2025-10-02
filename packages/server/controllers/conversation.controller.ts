@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 
 import { conversationRepository } from '../repositories/conversation.repository';
@@ -8,10 +8,25 @@ import {
    serializeConversationSummary,
 } from './serializers';
 
+function ensureUser(req: Request, res: Response): string | null {
+   if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated.' });
+      return null;
+   }
+
+   return req.user.id;
+}
+
 export const conversationController = {
    list(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const conversations = conversationRepository
-         .list()
+         .list(userId)
          .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
          .map(serializeConversationSummary);
 
@@ -19,18 +34,25 @@ export const conversationController = {
    },
 
    create(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const projectId =
          typeof req.body?.projectId === 'string'
             ? (req.body.projectId as string)
             : null;
 
-      if (projectId && !projectRepository.exists(projectId)) {
+      if (projectId && !projectRepository.exists(userId, projectId)) {
          res.status(404).json({ error: 'Project not found.' });
          return;
       }
 
       try {
          const conversation = conversationRepository.create(
+            userId,
             randomUUID(),
             projectId
          );
@@ -47,6 +69,12 @@ export const conversationController = {
    },
 
    get(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const conversationId = req.params.conversationId;
 
       if (!conversationId) {
@@ -54,7 +82,7 @@ export const conversationController = {
          return;
       }
 
-      const conversation = conversationRepository.get(conversationId);
+      const conversation = conversationRepository.get(userId, conversationId);
 
       if (!conversation) {
          res.status(404).json({ error: 'Conversation not found' });
@@ -65,6 +93,12 @@ export const conversationController = {
    },
 
    update(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const conversationId = req.params.conversationId;
 
       if (!conversationId) {
@@ -83,7 +117,7 @@ export const conversationController = {
       }
 
       try {
-         let conversation = conversationRepository.get(conversationId);
+         let conversation = conversationRepository.get(userId, conversationId);
 
          if (!conversation) {
             res.status(404).json({ error: 'Conversation not found' });
@@ -96,13 +130,14 @@ export const conversationController = {
 
             if (
                normalizedProjectId &&
-               !projectRepository.exists(normalizedProjectId)
+               !projectRepository.exists(userId, normalizedProjectId)
             ) {
                res.status(404).json({ error: 'Project not found.' });
                return;
             }
 
             const updated = conversationRepository.setProject(
+               userId,
                conversationId,
                normalizedProjectId
             );
@@ -117,6 +152,7 @@ export const conversationController = {
 
          if (typeof title === 'string') {
             conversation = conversationRepository.updateTitle(
+               userId,
                conversationId,
                title
             );
@@ -140,6 +176,12 @@ export const conversationController = {
    },
 
    delete(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const conversationId = req.params.conversationId;
 
       if (!conversationId) {
@@ -147,7 +189,7 @@ export const conversationController = {
          return;
       }
 
-      const removed = conversationRepository.delete(conversationId);
+      const removed = conversationRepository.delete(userId, conversationId);
 
       if (!removed) {
          res.status(404).json({ error: 'Conversation not found' });

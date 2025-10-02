@@ -28,21 +28,39 @@ database.exec(`
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE IF NOT EXISTS projects (
+CREATE TABLE IF NOT EXISTS users (
    id TEXT PRIMARY KEY,
+   email TEXT NOT NULL UNIQUE,
+   password_hash TEXT NOT NULL,
    name TEXT NOT NULL,
+   date_of_birth TEXT NOT NULL,
+   phone TEXT NOT NULL,
    created_at TEXT NOT NULL,
    updated_at TEXT NOT NULL
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email
+   ON users (email);
+
+CREATE TABLE IF NOT EXISTS projects (
+   id TEXT PRIMARY KEY,
+   user_id TEXT NOT NULL,
+   name TEXT NOT NULL,
+   created_at TEXT NOT NULL,
+   updated_at TEXT NOT NULL,
+   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS conversations (
    id TEXT PRIMARY KEY,
+   user_id TEXT NOT NULL,
    title TEXT NOT NULL,
    created_at TEXT NOT NULL,
    updated_at TEXT NOT NULL,
    last_response_id TEXT,
    project_id TEXT,
-   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -58,12 +76,39 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
    ON messages (conversation_id, created_at);
 `);
 
+const projectColumns = database
+   .query<
+      { name: string },
+      Record<string, never>
+   >(`PRAGMA table_info(projects)`)
+   .all({}) as { name: string }[];
+
+const hasProjectUserColumn = projectColumns.some(
+   (column) => column.name === 'user_id'
+);
+
+if (!hasProjectUserColumn) {
+   database.exec(
+      `ALTER TABLE projects ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE`
+   );
+}
+
 const conversationColumns = database
    .query<
       { name: string },
       Record<string, never>
    >(`PRAGMA table_info(conversations)`)
    .all({}) as { name: string }[];
+
+const hasConversationUserColumn = conversationColumns.some(
+   (column) => column.name === 'user_id'
+);
+
+if (!hasConversationUserColumn) {
+   database.exec(
+      `ALTER TABLE conversations ADD COLUMN user_id TEXT REFERENCES users(id) ON DELETE CASCADE`
+   );
+}
 
 const hasProjectColumn = conversationColumns.some(
    (column) => column.name === 'project_id'
@@ -74,6 +119,16 @@ if (!hasProjectColumn) {
       `ALTER TABLE conversations ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE CASCADE`
    );
 }
+
+database.exec(`
+CREATE INDEX IF NOT EXISTS idx_projects_user_id
+   ON projects (user_id);
+`);
+
+database.exec(`
+CREATE INDEX IF NOT EXISTS idx_conversations_user_updated_at
+   ON conversations (user_id, updated_at);
+`);
 
 database.exec(`
 CREATE INDEX IF NOT EXISTS idx_conversations_project_updated_at

@@ -1,17 +1,38 @@
-import { randomUUID } from 'node:crypto';
+﻿import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 
 import { projectRepository } from '../repositories/project.repository';
 import { serializeProject } from './serializers';
 
+function ensureUser(req: Request, res: Response): string | null {
+   if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated.' });
+      return null;
+   }
+
+   return req.user.id;
+}
+
 export const projectController = {
    list(req: Request, res: Response) {
-      const projects = projectRepository.list().map(serializeProject);
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
+      const projects = projectRepository.list(userId).map(serializeProject);
 
       res.json({ projects });
    },
 
    create(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const name =
          typeof req.body?.name === 'string' ? req.body.name.trim() : '';
 
@@ -21,7 +42,7 @@ export const projectController = {
       }
 
       try {
-         const project = projectRepository.create(randomUUID(), name);
+         const project = projectRepository.create(userId, randomUUID(), name);
          res.status(201).json({ project: serializeProject(project) });
       } catch (error) {
          const message =
@@ -33,6 +54,12 @@ export const projectController = {
    },
 
    rename(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const projectId = req.params.projectId;
 
       if (!projectId) {
@@ -49,7 +76,7 @@ export const projectController = {
       }
 
       try {
-         const project = projectRepository.rename(projectId, name);
+         const project = projectRepository.rename(userId, projectId, name);
 
          if (!project) {
             res.status(404).json({ error: 'Project not found.' });
@@ -67,6 +94,12 @@ export const projectController = {
    },
 
    delete(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
       const projectId = req.params.projectId;
 
       if (!projectId) {
@@ -74,7 +107,7 @@ export const projectController = {
          return;
       }
 
-      const deleted = projectRepository.delete(projectId);
+      const deleted = projectRepository.delete(userId, projectId);
 
       if (!deleted) {
          res.status(404).json({ error: 'Project not found.' });
