@@ -595,6 +595,10 @@ export function useChat(): UseChatReturn {
          }
 
          let nextActiveId: string | null = null;
+         const previousProjectId =
+            conversations.find(
+               (conversation) => conversation.id === conversationId
+            )?.projectId ?? null;
 
          try {
             const archived = await archiveConversationRequest(conversationId);
@@ -634,10 +638,10 @@ export function useChat(): UseChatReturn {
                return next;
             });
 
-            if (archived.projectId) {
+            if (previousProjectId) {
                setProjects((prev) =>
                   prev.map((project) =>
-                     project.id === archived.projectId
+                     project.id === previousProjectId
                         ? {
                              ...project,
                              conversationCount: Math.max(
@@ -671,7 +675,7 @@ export function useChat(): UseChatReturn {
             throw error;
          }
       },
-      [activeConversationId, selectConversation]
+      [activeConversationId, conversations, selectConversation]
    );
 
    const unarchiveConversation = useCallback(

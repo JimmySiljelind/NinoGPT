@@ -30,7 +30,7 @@ const registrationSchema = z.object({
    phone: z
       .string()
       .regex(
-         /^[+][0-9]{10,15}$/,
+         /^\(\+\d{1,3}\)\s?\d{6,15}$/,
          'Phone number must include a country code and at least 10 digits.'
       )
       .transform((value) => value.trim()),

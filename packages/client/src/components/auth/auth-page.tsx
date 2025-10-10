@@ -137,7 +137,7 @@ export function AuthPage({
          email: trimmedEmail,
          password,
          dateOfBirth: registerState.dateOfBirth,
-         phone: `${registerState.phoneCountry}${digitsOnlyPhone}`,
+         phone: `(${registerState.phoneCountry}) ${digitsOnlyPhone}`,
       });
 
       if (!result.success) {
@@ -171,7 +171,7 @@ export function AuthPage({
                   <button
                      type="button"
                      onClick={() => toggleMode('login')}
-                     className={`flex-1 rounded-full px-4 py-2 transition ${mode === 'login' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                     className={`flex-1 rounded-full px-4 py-2 transition ${mode === 'login' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground cursor-pointer'}`}
                      disabled={isSubmitting}
                   >
                      Sign in
@@ -179,7 +179,7 @@ export function AuthPage({
                   <button
                      type="button"
                      onClick={() => toggleMode('register')}
-                     className={`flex-1 rounded-full px-4 py-2 transition ${mode === 'register' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                     className={`flex-1 rounded-full px-4 py-2 transition ${mode === 'register' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground cursor-pointer'}`}
                      disabled={isSubmitting}
                   >
                      Register

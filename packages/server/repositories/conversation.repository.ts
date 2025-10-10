@@ -211,7 +211,8 @@ const archiveConversationStmt = database.query<
 >(
    `UPDATE conversations
     SET archived_at = $archivedAt,
-        updated_at = $updatedAt
+        updated_at = $updatedAt,
+        project_id = NULL
     WHERE id = $id AND user_id = $userId`
 );
 

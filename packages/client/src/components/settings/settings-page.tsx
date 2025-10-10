@@ -391,10 +391,10 @@ export function SettingsPage({
                            setProfilePhone(event.target.value)
                         }
                         required
-                        placeholder="+46123456789"
+                        placeholder="(+XX) XXXXXXXXX"
                      />
                      <p className="text-xs text-muted-foreground">
-                        Include the country code, e.g. +46XXXXXXXXX.
+                        Include the country code, e.g. (+XX) XXXXXXXXX.
                      </p>
                   </div>
                   {profileError ? (

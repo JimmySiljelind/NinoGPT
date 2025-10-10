@@ -149,4 +149,12 @@ CREATE INDEX IF NOT EXISTS idx_conversations_user_archived
    ON conversations (user_id, archived_at);
 `);
 
+// Ensure archived conversations no longer reference projects so they survive project deletion.
+database.exec(`
+UPDATE conversations
+SET project_id = NULL
+WHERE archived_at IS NOT NULL
+  AND project_id IS NOT NULL;
+`);
+
 export default database;
