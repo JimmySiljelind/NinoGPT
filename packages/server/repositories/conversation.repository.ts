@@ -229,7 +229,11 @@ const unarchiveConversationStmt = database.query<
 const deleteAllConversationsStmt = database.query<
    Record<string, never>,
    { $userId: string }
->(`DELETE FROM conversations WHERE user_id = $userId`);
+>(
+   `DELETE FROM conversations
+    WHERE user_id = $userId
+      AND archived_at IS NULL`
+);
 
 const deleteArchivedConversationsStmt = database.query<
    Record<string, never>,

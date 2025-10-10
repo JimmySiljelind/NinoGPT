@@ -732,7 +732,6 @@ export function useChat(): UseChatReturn {
          const deleted = await deleteAllConversationsRequest();
 
          setConversations([]);
-         setArchivedConversations([]);
          setMessagesMap({});
          setErrors({});
          setActiveConversationId(null);
