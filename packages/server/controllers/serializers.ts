@@ -18,6 +18,7 @@ type SerializedConversationSummary = {
    updatedAt: string;
    messageCount: number;
    projectId: string | null;
+   archivedAt: string | null;
 };
 
 type SerializedConversation = SerializedConversationSummary & {
@@ -53,6 +54,9 @@ export function serializeConversationSummary(
       updatedAt: conversation.updatedAt.toISOString(),
       messageCount: conversation.messages.length,
       projectId: conversation.projectId,
+      archivedAt: conversation.archivedAt
+         ? conversation.archivedAt.toISOString()
+         : null,
    };
 }
 

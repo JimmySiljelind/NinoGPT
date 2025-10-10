@@ -89,3 +89,16 @@ export async function deleteProject(projectId: string): Promise<void> {
       method: 'DELETE',
    });
 }
+
+export async function deleteAllProjects(): Promise<number> {
+   const data = await makeJsonRequest('/api/projects', {
+      method: 'DELETE',
+   });
+
+   if (!data || typeof data !== 'object' || !('deleted' in data)) {
+      return 0;
+   }
+
+   const deleted = (data as { deleted?: number }).deleted;
+   return typeof deleted === 'number' ? deleted : 0;
+}

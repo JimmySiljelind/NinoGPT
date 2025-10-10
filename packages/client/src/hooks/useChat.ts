@@ -3,14 +3,20 @@ import { useCallback, useEffect, useState } from 'react';
 import {
    ChatRequestError,
    createConversation,
+   archiveConversation as archiveConversationRequest,
+   deleteAllConversations as deleteAllConversationsRequest,
    deleteConversation as deleteConversationRequest,
+   deleteArchivedConversations as deleteArchivedConversationsRequest,
    getConversation,
+   listArchivedConversations,
    listConversations,
    sendChatMessage,
+   unarchiveConversation as unarchiveConversationRequest,
    updateConversation,
 } from '@/lib/chat-client';
 import {
    createProject as createProjectApi,
+   deleteAllProjects as deleteAllProjectsRequest,
    deleteProject as deleteProjectApi,
    listProjects,
    renameProject as renameProjectApi,
@@ -25,20 +31,28 @@ import type { ChatProject } from '@/types/project';
 
 type UseChatReturn = {
    conversations: ChatConversation[];
+   archivedConversations: ChatConversation[];
    projects: ChatProject[];
    activeConversationId: string | null;
    messages: ChatMessage[];
    isSending: boolean;
    isLoadingConversations: boolean;
+   isLoadingArchived: boolean;
    error: string | null;
    globalError: string | null;
    sendMessage: (input: string) => Promise<void>;
    selectConversation: (conversationId: string) => void;
    startNewConversation: () => Promise<void>;
    deleteConversation: (conversationId: string) => Promise<void>;
+   archiveConversation: (conversationId: string) => Promise<void>;
+   unarchiveConversation: (conversationId: string) => Promise<void>;
    createProject: (name: string) => Promise<ChatProject>;
    renameProject: (projectId: string, name: string) => Promise<void>;
    deleteProject: (projectId: string) => Promise<void>;
+   deleteAllConversations: () => Promise<number>;
+   deleteArchivedConversations: () => Promise<number>;
+   deleteAllProjects: () => Promise<number>;
+   loadArchivedConversations: () => Promise<void>;
    assignConversationToProject: (
       conversationId: string,
       projectId: string | null
@@ -98,6 +112,9 @@ function sortProjectsByUpdatedAt(projects: ChatProject[]) {
 
 export function useChat(): UseChatReturn {
    const [conversations, setConversations] = useState<ChatConversation[]>([]);
+   const [archivedConversations, setArchivedConversations] = useState<
+      ChatConversation[]
+   >([]);
    const [projects, setProjects] = useState<ChatProject[]>([]);
    const [activeConversationId, setActiveConversationId] = useState<
       string | null
@@ -109,6 +126,7 @@ export function useChat(): UseChatReturn {
    const [globalError, setGlobalError] = useState<string | null>(null);
    const [isSending, setIsSending] = useState(false);
    const [isLoadingConversations, setIsLoadingConversations] = useState(true);
+   const [isLoadingArchived, setIsLoadingArchived] = useState(false);
 
    const messages = activeConversationId
       ? (messagesMap[activeConversationId] ?? [])
@@ -139,6 +157,27 @@ export function useChat(): UseChatReturn {
             [conversationId]: null,
          };
       });
+   }, []);
+
+   const loadArchivedConversations = useCallback(async () => {
+      setIsLoadingArchived(true);
+
+      try {
+         const archived = await listArchivedConversations();
+         setArchivedConversations(archived);
+         setGlobalError(null);
+      } catch (error) {
+         const message =
+            error instanceof ChatRequestError
+               ? error.message
+               : error instanceof Error
+                 ? error.message
+                 : 'Failed to load archived conversations.';
+         setGlobalError(message);
+         throw error;
+      } finally {
+         setIsLoadingArchived(false);
+      }
    }, []);
 
    useEffect(() => {
@@ -208,6 +247,7 @@ export function useChat(): UseChatReturn {
             setProjects([]);
             setMessagesMap({});
             setErrors({});
+            setArchivedConversations([]);
             setGlobalError(message);
          } finally {
             if (!cancelled) {
@@ -454,9 +494,13 @@ export function useChat(): UseChatReturn {
             return;
          }
 
-         const target = conversations.find(
-            (conversation) => conversation.id === conversationId
-         );
+         const target =
+            conversations.find(
+               (conversation) => conversation.id === conversationId
+            ) ??
+            archivedConversations.find(
+               (conversation) => conversation.id === conversationId
+            );
 
          try {
             await deleteConversationRequest(conversationId);
@@ -473,14 +517,28 @@ export function useChat(): UseChatReturn {
                return next;
             });
 
+            setArchivedConversations((prev) =>
+               prev.filter((item) => item.id !== conversationId)
+            );
+
             setMessagesMap((prev) => {
-               const { [conversationId]: _removed, ...rest } = prev;
-               return rest;
+               if (!(conversationId in prev)) {
+                  return prev;
+               }
+
+               const next = { ...prev };
+               delete next[conversationId];
+               return next;
             });
 
             setErrors((prev) => {
-               const { [conversationId]: _removed, ...rest } = prev;
-               return rest;
+               if (!(conversationId in prev)) {
+                  return prev;
+               }
+
+               const next = { ...prev };
+               delete next[conversationId];
+               return next;
             });
 
             if (target?.projectId) {
@@ -522,8 +580,301 @@ export function useChat(): UseChatReturn {
             throw error;
          }
       },
-      [activeConversationId, conversations, selectConversation]
+      [
+         activeConversationId,
+         archivedConversations,
+         conversations,
+         selectConversation,
+      ]
    );
+
+   const archiveConversation = useCallback(
+      async (conversationId: string) => {
+         if (!conversationId) {
+            return;
+         }
+
+         let nextActiveId: string | null = null;
+
+         try {
+            const archived = await archiveConversationRequest(conversationId);
+
+            setConversations((prev) => {
+               const next = prev.filter((item) => item.id !== conversationId);
+
+               if (activeConversationId === conversationId) {
+                  nextActiveId = next[0]?.id ?? null;
+               }
+
+               return next;
+            });
+
+            setArchivedConversations((prev) => [
+               archived,
+               ...prev.filter((item) => item.id !== conversationId),
+            ]);
+
+            setMessagesMap((prev) => {
+               if (!(conversationId in prev)) {
+                  return prev;
+               }
+
+               const next = { ...prev };
+               delete next[conversationId];
+               return next;
+            });
+
+            setErrors((prev) => {
+               if (!(conversationId in prev)) {
+                  return prev;
+               }
+
+               const next = { ...prev };
+               delete next[conversationId];
+               return next;
+            });
+
+            if (archived.projectId) {
+               setProjects((prev) =>
+                  prev.map((project) =>
+                     project.id === archived.projectId
+                        ? {
+                             ...project,
+                             conversationCount: Math.max(
+                                project.conversationCount - 1,
+                                0
+                             ),
+                          }
+                        : project
+                  )
+               );
+            }
+
+            setGlobalError(null);
+
+            if (activeConversationId === conversationId) {
+               if (nextActiveId) {
+                  selectConversation(nextActiveId);
+               } else {
+                  setActiveConversationId(null);
+               }
+            }
+         } catch (error) {
+            const message =
+               error instanceof ChatRequestError
+                  ? error.message
+                  : error instanceof Error
+                    ? error.message
+                    : 'Failed to archive conversation.';
+
+            setGlobalError(message);
+            throw error;
+         }
+      },
+      [activeConversationId, selectConversation]
+   );
+
+   const unarchiveConversation = useCallback(
+      async (conversationId: string) => {
+         if (!conversationId) {
+            return;
+         }
+
+         try {
+            const conversation =
+               await unarchiveConversationRequest(conversationId);
+
+            setArchivedConversations((prev) =>
+               prev.filter((item) => item.id !== conversationId)
+            );
+
+            setConversations((prev) =>
+               promoteConversation(prev, conversation.id, () => conversation)
+            );
+
+            ensureConversationState(conversation.id);
+
+            if (conversation.projectId) {
+               setProjects((prev) =>
+                  prev.map((project) =>
+                     project.id === conversation.projectId
+                        ? {
+                             ...project,
+                             conversationCount: project.conversationCount + 1,
+                          }
+                        : project
+                  )
+               );
+            }
+
+            setGlobalError(null);
+         } catch (error) {
+            const message =
+               error instanceof ChatRequestError
+                  ? error.message
+                  : error instanceof Error
+                    ? error.message
+                    : 'Failed to unarchive conversation.';
+
+            setGlobalError(message);
+            throw error;
+         }
+      },
+      [ensureConversationState]
+   );
+
+   const deleteAllConversations = useCallback(async () => {
+      try {
+         const deleted = await deleteAllConversationsRequest();
+
+         setConversations([]);
+         setArchivedConversations([]);
+         setMessagesMap({});
+         setErrors({});
+         setActiveConversationId(null);
+         setProjects((prev) =>
+            prev.map((project) => ({
+               ...project,
+               conversationCount: 0,
+            }))
+         );
+
+         setGlobalError(null);
+         return deleted;
+      } catch (error) {
+         const message =
+            error instanceof ChatRequestError
+               ? error.message
+               : error instanceof Error
+                 ? error.message
+                 : 'Failed to delete conversations.';
+
+         setGlobalError(message);
+         throw error;
+      }
+   }, []);
+
+   const deleteArchivedConversations = useCallback(async () => {
+      try {
+         const deleted = await deleteArchivedConversationsRequest();
+
+         if (deleted > 0) {
+            const archivedIds = new Set(
+               archivedConversations.map((conversation) => conversation.id)
+            );
+
+            setArchivedConversations([]);
+            setMessagesMap((prev) => {
+               if (archivedIds.size === 0) {
+                  return prev;
+               }
+
+               const next = { ...prev };
+               for (const id of archivedIds) {
+                  delete next[id];
+               }
+               return next;
+            });
+            setErrors((prev) => {
+               if (archivedIds.size === 0) {
+                  return prev;
+               }
+
+               const next = { ...prev };
+               for (const id of archivedIds) {
+                  delete next[id];
+               }
+               return next;
+            });
+         }
+
+         setGlobalError(null);
+         return deleted;
+      } catch (error) {
+         const message =
+            error instanceof ChatRequestError
+               ? error.message
+               : error instanceof Error
+                 ? error.message
+                 : 'Failed to delete archived conversations.';
+
+         setGlobalError(message);
+         throw error;
+      }
+   }, [archivedConversations]);
+
+   const deleteAllProjects = useCallback(async () => {
+      try {
+         const deleted = await deleteAllProjectsRequest();
+
+         const removedConversationIds = new Set<string>();
+         let nextActiveId: string | null | undefined;
+
+         setConversations((prev) => {
+            const next: ChatConversation[] = [];
+
+            for (const conversation of prev) {
+               if (conversation.projectId === null) {
+                  next.push(conversation);
+               } else {
+                  removedConversationIds.add(conversation.id);
+               }
+            }
+
+            if (
+               typeof nextActiveId === 'undefined' &&
+               activeConversationId &&
+               removedConversationIds.has(activeConversationId)
+            ) {
+               nextActiveId = next[0]?.id ?? null;
+            }
+
+            return next;
+         });
+
+         setArchivedConversations((prev) =>
+            prev.filter((conversation) => conversation.projectId === null)
+         );
+
+         if (removedConversationIds.size > 0) {
+            setMessagesMap((prev) => {
+               const next = { ...prev };
+               for (const id of removedConversationIds) {
+                  delete next[id];
+               }
+               return next;
+            });
+            setErrors((prev) => {
+               const next = { ...prev };
+               for (const id of removedConversationIds) {
+                  delete next[id];
+               }
+               return next;
+            });
+            if (typeof nextActiveId !== 'undefined') {
+               if (nextActiveId) {
+                  selectConversation(nextActiveId);
+               } else {
+                  setActiveConversationId(null);
+               }
+            }
+         }
+
+         setProjects([]);
+         setGlobalError(null);
+         return deleted;
+      } catch (error) {
+         const message =
+            error instanceof ChatRequestError
+               ? error.message
+               : error instanceof Error
+                 ? error.message
+                 : 'Failed to delete projects.';
+
+         setGlobalError(message);
+         throw error;
+      }
+   }, [activeConversationId, selectConversation]);
 
    const createProject = useCallback(async (name: string) => {
       try {
@@ -749,20 +1100,28 @@ export function useChat(): UseChatReturn {
 
    return {
       conversations,
+      archivedConversations,
       projects,
       activeConversationId,
       messages,
       isSending,
       isLoadingConversations,
+      isLoadingArchived,
       error,
       globalError,
       sendMessage,
       selectConversation,
       startNewConversation,
       deleteConversation,
+      archiveConversation,
+      unarchiveConversation,
       createProject,
       renameProject,
       deleteProject,
+      deleteAllConversations,
+      deleteArchivedConversations,
+      deleteAllProjects,
+      loadArchivedConversations,
       assignConversationToProject,
       renameConversation,
       resetChat,

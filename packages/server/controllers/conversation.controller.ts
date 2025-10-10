@@ -198,4 +198,94 @@ export const conversationController = {
 
       res.status(204).send();
    },
+
+   listArchived(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
+      const conversations = conversationRepository
+         .listArchived(userId)
+         .map(serializeConversationSummary);
+
+      res.json({ conversations });
+   },
+
+   archive(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
+      const conversationId = req.params.conversationId;
+
+      if (!conversationId) {
+         res.status(400).json({ error: 'Conversation id is required.' });
+         return;
+      }
+
+      const conversation = conversationRepository.archive(
+         userId,
+         conversationId
+      );
+
+      if (!conversation) {
+         res.status(404).json({ error: 'Conversation not found.' });
+         return;
+      }
+
+      res.json({ conversation: serializeConversationSummary(conversation) });
+   },
+
+   unarchive(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
+      const conversationId = req.params.conversationId;
+
+      if (!conversationId) {
+         res.status(400).json({ error: 'Conversation id is required.' });
+         return;
+      }
+
+      const conversation = conversationRepository.unarchive(
+         userId,
+         conversationId
+      );
+
+      if (!conversation) {
+         res.status(404).json({ error: 'Conversation not found.' });
+         return;
+      }
+
+      res.json({ conversation: serializeConversationSummary(conversation) });
+   },
+
+   deleteAll(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
+      const deleted = conversationRepository.deleteAll(userId);
+      res.json({ deleted });
+   },
+
+   deleteArchived(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
+      const deleted = conversationRepository.deleteArchived(userId);
+      res.json({ deleted });
+   },
 };

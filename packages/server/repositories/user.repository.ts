@@ -60,6 +60,34 @@ const updateUserTimestampStmt = database.query<
     WHERE id = $id`
 );
 
+const updateUserProfileStmt = database.query<
+   Record<string, never>,
+   {
+      $id: string;
+      $email: string;
+      $name: string;
+      $phone: string;
+      $updatedAt: string;
+   }
+>(
+   `UPDATE users
+    SET email = $email,
+        name = $name,
+        phone = $phone,
+        updated_at = $updatedAt
+    WHERE id = $id`
+);
+
+const updateUserPasswordStmt = database.query<
+   Record<string, never>,
+   { $id: string; $passwordHash: string; $updatedAt: string }
+>(
+   `UPDATE users
+    SET password_hash = $passwordHash,
+        updated_at = $updatedAt
+    WHERE id = $id`
+);
+
 function rowToUser(row: UserRow): UserRecord {
    return {
       id: row.id,
@@ -138,5 +166,82 @@ export const userRepository = {
          $id: userId,
          $updatedAt: new Date().toISOString(),
       });
+   },
+
+   updateProfile(
+      userId: string,
+      params: { email: string; name: string; phone: string }
+   ): UserRecord {
+      const existing = selectUserByIdStmt.get({ $id: userId }) as
+         | UserRow
+         | undefined
+         | null;
+
+      if (!existing) {
+         throw new Error('User not found.');
+      }
+
+      const normalizedEmail = params.email.trim().toLowerCase();
+
+      if (normalizedEmail !== existing.email.toLowerCase()) {
+         const conflicting = selectUserByEmailStmt.get({
+            $email: normalizedEmail,
+         }) as UserRow | undefined | null;
+
+         if (conflicting && conflicting.id !== userId) {
+            throw new Error('Email is already registered.');
+         }
+      }
+
+      const now = new Date().toISOString();
+
+      updateUserProfileStmt.run({
+         $id: userId,
+         $email: normalizedEmail,
+         $name: params.name.trim(),
+         $phone: params.phone.trim(),
+         $updatedAt: now,
+      });
+
+      const updated = selectUserByIdStmt.get({ $id: userId }) as
+         | UserRow
+         | undefined
+         | null;
+
+      if (!updated) {
+         throw new Error('Failed to load user after update.');
+      }
+
+      return rowToUser(updated);
+   },
+
+   updatePassword(userId: string, passwordHash: string): UserRecord {
+      const existing = selectUserByIdStmt.get({ $id: userId }) as
+         | UserRow
+         | undefined
+         | null;
+
+      if (!existing) {
+         throw new Error('User not found.');
+      }
+
+      const now = new Date().toISOString();
+
+      updateUserPasswordStmt.run({
+         $id: userId,
+         $passwordHash: passwordHash,
+         $updatedAt: now,
+      });
+
+      const updated = selectUserByIdStmt.get({ $id: userId }) as
+         | UserRow
+         | undefined
+         | null;
+
+      if (!updated) {
+         throw new Error('Failed to load user after password update.');
+      }
+
+      return rowToUser(updated);
    },
 };

@@ -51,6 +51,8 @@ type ChatSidebarProps = {
    currentUserName: string;
    currentUserEmail: string;
    onLogout: () => Promise<void> | void;
+   onOpenSettings: () => void;
+   isSettingsView: boolean;
 };
 
 type RenameTarget =
@@ -75,6 +77,8 @@ export function ChatSidebar({
    currentUserName,
    currentUserEmail,
    onLogout,
+   onOpenSettings,
+   isSettingsView,
 }: ChatSidebarProps) {
    const [expandedProjects, setExpandedProjects] = useState<
       Record<string, boolean>
@@ -582,9 +586,20 @@ export function ChatSidebar({
                      </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer gap-2">
+                  <DropdownMenuItem
+                     className="cursor-pointer gap-2"
+                     onSelect={() => {
+                        onOpenSettings();
+                     }}
+                  >
                      <Settings className="size-4" aria-hidden />
-                     <span>Settings</span>
+                     <span className="flex-1">Settings</span>
+                     {isSettingsView ? (
+                        <Check
+                           className="size-4 text-muted-foreground"
+                           aria-hidden
+                        />
+                     ) : null}
                   </DropdownMenuItem>
                   <DropdownMenuItem
                      className="cursor-pointer gap-2 text-destructive focus:text-destructive"

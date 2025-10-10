@@ -19,6 +19,8 @@ function App() {
       login,
       register,
       logout,
+      updateProfile,
+      changePassword,
       resetError,
    } = useAuth();
 
@@ -38,7 +40,14 @@ function App() {
       );
    }
 
-   return <ChatShell onLogout={logout} user={user} />;
+   return (
+      <ChatShell
+         onLogout={logout}
+         onUpdateProfile={updateProfile}
+         onChangePassword={changePassword}
+         user={user}
+      />
+   );
 }
 
 export default App;

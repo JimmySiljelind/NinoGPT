@@ -29,6 +29,7 @@ type ConversationSummaryDto = {
    updatedAt: string;
    messageCount?: number;
    projectId?: string | null;
+   archivedAt?: string | null;
 };
 
 type ConversationDetailDto = ConversationSummaryDto & {
@@ -63,6 +64,7 @@ function parseConversationSummary(
       updatedAt: new Date(dto.updatedAt),
       messageCount: dto.messageCount ?? 0,
       projectId: dto.projectId ?? null,
+      archivedAt: dto.archivedAt ? new Date(dto.archivedAt) : null,
    };
 }
 
@@ -247,4 +249,84 @@ export async function updateConversation(
    }
 
    return parseConversationSummary(data.conversation as ConversationSummaryDto);
+}
+
+export async function listArchivedConversations(): Promise<ChatConversation[]> {
+   const data = await makeJsonRequest('/api/conversations/archived');
+
+   if (!data || !Array.isArray(data.conversations)) {
+      return [];
+   }
+
+   return (data.conversations as ConversationSummaryDto[]).map(
+      parseConversationSummary
+   );
+}
+
+export async function archiveConversation(
+   conversationId: string
+): Promise<ChatConversation> {
+   if (!conversationId) {
+      throw new ChatRequestError('Conversation id is required.');
+   }
+
+   const data = await makeJsonRequest(
+      `/api/conversations/${conversationId}/archive`,
+      {
+         method: 'POST',
+      }
+   );
+
+   if (!data || !data.conversation) {
+      throw new ChatRequestError('Failed to archive conversation.');
+   }
+
+   return parseConversationSummary(data.conversation as ConversationSummaryDto);
+}
+
+export async function unarchiveConversation(
+   conversationId: string
+): Promise<ChatConversation> {
+   if (!conversationId) {
+      throw new ChatRequestError('Conversation id is required.');
+   }
+
+   const data = await makeJsonRequest(
+      `/api/conversations/${conversationId}/unarchive`,
+      {
+         method: 'POST',
+      }
+   );
+
+   if (!data || !data.conversation) {
+      throw new ChatRequestError('Failed to unarchive conversation.');
+   }
+
+   return parseConversationSummary(data.conversation as ConversationSummaryDto);
+}
+
+export async function deleteAllConversations(): Promise<number> {
+   const data = await makeJsonRequest('/api/conversations', {
+      method: 'DELETE',
+   });
+
+   if (!data || typeof data !== 'object' || !('deleted' in data)) {
+      return 0;
+   }
+
+   const deleted = (data as { deleted?: number }).deleted;
+   return typeof deleted === 'number' ? deleted : 0;
+}
+
+export async function deleteArchivedConversations(): Promise<number> {
+   const data = await makeJsonRequest('/api/conversations/archived', {
+      method: 'DELETE',
+   });
+
+   if (!data || typeof data !== 'object' || !('deleted' in data)) {
+      return 0;
+   }
+
+   const deleted = (data as { deleted?: number }).deleted;
+   return typeof deleted === 'number' ? deleted : 0;
 }

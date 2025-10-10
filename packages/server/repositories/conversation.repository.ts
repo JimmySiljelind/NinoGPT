@@ -15,6 +15,7 @@ export type ConversationRecord = {
    title: string;
    createdAt: Date;
    updatedAt: Date;
+   archivedAt: Date | null;
    lastResponseId: string | null;
    projectId: string | null;
    messages: ConversationMessage[];
@@ -28,6 +29,7 @@ type ConversationRow = {
    title: string;
    created_at: string;
    updated_at: string;
+   archived_at: string | null;
    last_response_id: string | null;
    project_id: string | null;
 };
@@ -49,6 +51,7 @@ const selectConversationStmt = database.query<
            title,
            created_at,
            updated_at,
+           archived_at,
            last_response_id,
            project_id
     FROM conversations
@@ -64,10 +67,12 @@ const selectConversationsStmt = database.query<
            title,
            created_at,
            updated_at,
+           archived_at,
            last_response_id,
            project_id
     FROM conversations
     WHERE user_id = $userId
+      AND archived_at IS NULL
     ORDER BY updated_at DESC`
 );
 
@@ -93,12 +98,13 @@ const insertConversationStmt = database.query<
       $title: string;
       $createdAt: string;
       $updatedAt: string;
+      $archivedAt: string | null;
       $lastResponseId: string | null;
       $projectId: string | null;
    }
 >(
-   `INSERT OR IGNORE INTO conversations (id, user_id, title, created_at, updated_at, last_response_id, project_id)
-    VALUES ($id, $userId, $title, $createdAt, $updatedAt, $lastResponseId, $projectId)`
+   `INSERT OR IGNORE INTO conversations (id, user_id, title, created_at, updated_at, archived_at, last_response_id, project_id)
+    VALUES ($id, $userId, $title, $createdAt, $updatedAt, $archivedAt, $lastResponseId, $projectId)`
 );
 
 const updateConversationMetaStmt = database.query<
@@ -181,6 +187,58 @@ const deleteConversationStmt = database.query<
     WHERE id = $id AND user_id = $userId`
 );
 
+const selectArchivedConversationsStmt = database.query<
+   ConversationRow,
+   { $userId: string }
+>(
+   `SELECT id,
+           user_id,
+           title,
+           created_at,
+           updated_at,
+           archived_at,
+           last_response_id,
+           project_id
+    FROM conversations
+    WHERE user_id = $userId
+      AND archived_at IS NOT NULL
+    ORDER BY archived_at DESC, updated_at DESC`
+);
+
+const archiveConversationStmt = database.query<
+   Record<string, never>,
+   { $id: string; $userId: string; $archivedAt: string; $updatedAt: string }
+>(
+   `UPDATE conversations
+    SET archived_at = $archivedAt,
+        updated_at = $updatedAt
+    WHERE id = $id AND user_id = $userId`
+);
+
+const unarchiveConversationStmt = database.query<
+   Record<string, never>,
+   { $id: string; $userId: string; $updatedAt: string }
+>(
+   `UPDATE conversations
+    SET archived_at = NULL,
+        updated_at = $updatedAt
+    WHERE id = $id AND user_id = $userId`
+);
+
+const deleteAllConversationsStmt = database.query<
+   Record<string, never>,
+   { $userId: string }
+>(`DELETE FROM conversations WHERE user_id = $userId`);
+
+const deleteArchivedConversationsStmt = database.query<
+   Record<string, never>,
+   { $userId: string }
+>(
+   `DELETE FROM conversations
+    WHERE user_id = $userId
+      AND archived_at IS NOT NULL`
+);
+
 const selectProjectStmt = database.query<
    { id: string },
    { $id: string; $userId: string }
@@ -200,6 +258,7 @@ function rowToConversation(
       title: row.title,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
+      archivedAt: row.archived_at ? new Date(row.archived_at) : null,
       lastResponseId: row.last_response_id,
       projectId: row.project_id ?? null,
       messages,
@@ -252,6 +311,7 @@ function createConversationIfMissing(
       $title: DEFAULT_CONVERSATION_TITLE,
       $createdAt: now,
       $updatedAt: now,
+      $archivedAt: null,
       $lastResponseId: null,
       $projectId: projectId,
    });
@@ -289,10 +349,14 @@ export const conversationRepository = {
    ) {
       createConversationIfMissing(conversationId, userId, projectId);
 
-      const conversation = fetchConversation(userId, conversationId);
+      let conversation = fetchConversation(userId, conversationId);
 
       if (!conversation) {
          throw new Error('Conversation could not be ensured.');
+      }
+
+      if (conversation.archivedAt) {
+         throw new Error('Conversation has been archived.');
       }
 
       return conversation;
@@ -310,6 +374,12 @@ export const conversationRepository = {
 
       if (!conversation) {
          throw new Error('Conversation not found when adding message.');
+      }
+
+      if (conversation.archived_at) {
+         throw new Error(
+            'Conversation is archived and cannot receive messages.'
+         );
       }
 
       insertMessageStmt.run({
@@ -458,5 +528,80 @@ export const conversationRepository = {
       });
 
       return fetchConversation(userId, conversationId);
+   },
+
+   listArchived(userId: string) {
+      const rows = selectArchivedConversationsStmt.all({
+         $userId: userId,
+      }) as ConversationRow[];
+
+      return rows.map((row) => rowToConversation(row, fetchMessages(row.id)));
+   },
+
+   archive(userId: string, conversationId: string) {
+      const existing = selectConversationStmt.get({
+         $id: conversationId,
+         $userId: userId,
+      }) as ConversationRow | undefined | null;
+
+      if (!existing) {
+         return null;
+      }
+
+      if (existing.archived_at) {
+         return fetchConversation(userId, conversationId);
+      }
+
+      const now = new Date().toISOString();
+
+      archiveConversationStmt.run({
+         $id: conversationId,
+         $userId: userId,
+         $archivedAt: now,
+         $updatedAt: now,
+      });
+
+      return fetchConversation(userId, conversationId);
+   },
+
+   unarchive(userId: string, conversationId: string) {
+      const existing = selectConversationStmt.get({
+         $id: conversationId,
+         $userId: userId,
+      }) as ConversationRow | undefined | null;
+
+      if (!existing) {
+         return null;
+      }
+
+      if (!existing.archived_at) {
+         return fetchConversation(userId, conversationId);
+      }
+
+      const now = new Date().toISOString();
+
+      unarchiveConversationStmt.run({
+         $id: conversationId,
+         $userId: userId,
+         $updatedAt: now,
+      });
+
+      return fetchConversation(userId, conversationId);
+   },
+
+   deleteAll(userId: string) {
+      const result = deleteAllConversationsStmt.run({ $userId: userId }) as {
+         changes?: number;
+      };
+
+      return Number(result?.changes ?? 0);
+   },
+
+   deleteArchived(userId: string) {
+      const result = deleteArchivedConversationsStmt.run({
+         $userId: userId,
+      }) as { changes?: number };
+
+      return Number(result?.changes ?? 0);
    },
 };

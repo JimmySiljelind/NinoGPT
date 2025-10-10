@@ -1,12 +1,9 @@
-﻿import dotenv from 'dotenv';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 
 import router from './routes';
 import { attachUser } from './middleware/auth';
-
-dotenv.config();
 
 const app = express();
 

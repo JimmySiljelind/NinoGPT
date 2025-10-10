@@ -116,4 +116,15 @@ export const projectController = {
 
       res.status(204).send();
    },
+
+   deleteAll(req: Request, res: Response) {
+      const userId = ensureUser(req, res);
+
+      if (!userId) {
+         return;
+      }
+
+      const deleted = projectRepository.deleteAll(userId);
+      res.json({ deleted });
+   },
 };

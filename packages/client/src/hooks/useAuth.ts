@@ -5,6 +5,8 @@ import {
    login as loginRequest,
    logout as logoutRequest,
    register as registerRequest,
+   updateProfile as updateProfileRequest,
+   changePassword as changePasswordRequest,
 } from '@/lib/auth-client';
 import type { AppUser } from '@/types/user';
 
@@ -29,6 +31,17 @@ type RegisterInput = {
    phone: string;
 };
 
+type UpdateProfileInput = {
+   email: string;
+   name: string;
+   phone: string;
+};
+
+type ChangePasswordInput = {
+   currentPassword: string;
+   newPassword: string;
+};
+
 export type AuthActionResult =
    | { success: true }
    | { success: false; error: string };
@@ -41,6 +54,8 @@ type UseAuthReturn = {
    login: (input: LoginInput) => Promise<AuthActionResult>;
    register: (input: RegisterInput) => Promise<AuthActionResult>;
    logout: () => Promise<void>;
+   updateProfile: (input: UpdateProfileInput) => Promise<AuthActionResult>;
+   changePassword: (input: ChangePasswordInput) => Promise<AuthActionResult>;
    resetError: () => void;
 };
 
@@ -154,6 +169,34 @@ export function useAuth(): UseAuthReturn {
       }
    }, []);
 
+   const updateProfile = useCallback(
+      async (input: UpdateProfileInput): Promise<AuthActionResult> => {
+         try {
+            const nextUser = await updateProfileRequest(input);
+            setUser(nextUser);
+            return { success: true };
+         } catch (error) {
+            const message = toErrorMessage(error);
+            return { success: false, error: message };
+         }
+      },
+      []
+   );
+
+   const changePassword = useCallback(
+      async (input: ChangePasswordInput): Promise<AuthActionResult> => {
+         try {
+            const nextUser = await changePasswordRequest(input);
+            setUser(nextUser);
+            return { success: true };
+         } catch (error) {
+            const message = toErrorMessage(error);
+            return { success: false, error: message };
+         }
+      },
+      []
+   );
+
    const resetError = useCallback(() => {
       setError(null);
    }, []);
@@ -166,6 +209,8 @@ export function useAuth(): UseAuthReturn {
       login,
       register,
       logout,
+      updateProfile,
+      changePassword,
       resetError,
    };
 }

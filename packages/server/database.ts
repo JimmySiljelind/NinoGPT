@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS conversations (
    title TEXT NOT NULL,
    created_at TEXT NOT NULL,
    updated_at TEXT NOT NULL,
+   archived_at TEXT,
    last_response_id TEXT,
    project_id TEXT,
    FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
@@ -120,6 +121,14 @@ if (!hasProjectColumn) {
    );
 }
 
+const hasArchivedColumn = conversationColumns.some(
+   (column) => column.name === 'archived_at'
+);
+
+if (!hasArchivedColumn) {
+   database.exec(`ALTER TABLE conversations ADD COLUMN archived_at TEXT`);
+}
+
 database.exec(`
 CREATE INDEX IF NOT EXISTS idx_projects_user_id
    ON projects (user_id);
@@ -133,6 +142,11 @@ CREATE INDEX IF NOT EXISTS idx_conversations_user_updated_at
 database.exec(`
 CREATE INDEX IF NOT EXISTS idx_conversations_project_updated_at
    ON conversations (project_id, updated_at);
+`);
+
+database.exec(`
+CREATE INDEX IF NOT EXISTS idx_conversations_user_archived
+   ON conversations (user_id, archived_at);
 `);
 
 export default database;

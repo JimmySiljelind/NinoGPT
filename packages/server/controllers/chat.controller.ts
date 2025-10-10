@@ -76,10 +76,17 @@ export const chatController = {
 
       const title = buildTitleFromPrompt(prompt) ?? undefined;
 
-      const conversation = conversationRepository.ensure(
-         userId,
-         activeConversationId
-      );
+      try {
+         conversationRepository.ensure(userId, activeConversationId);
+      } catch (error) {
+         const message =
+            error instanceof Error
+               ? error.message
+               : 'Unable to prepare conversation.';
+
+         res.status(400).json({ error: message });
+         return;
+      }
 
       conversationRepository.updateTitleIfDefault(
          userId,

@@ -26,7 +26,10 @@ const selectProjectsStmt = database.query<ProjectRow, { $userId: string }>(
            p.updated_at,
            COUNT(c.id) AS conversation_count
     FROM projects p
-    LEFT JOIN conversations c ON c.project_id = p.id AND c.user_id = $userId
+    LEFT JOIN conversations c
+      ON c.project_id = p.id
+     AND c.user_id = $userId
+     AND c.archived_at IS NULL
     WHERE p.user_id = $userId
     GROUP BY p.id
     ORDER BY p.updated_at DESC`
@@ -41,7 +44,11 @@ const selectProjectStmt = database.query<
            p.name,
            p.created_at,
            p.updated_at,
-           (SELECT COUNT(*) FROM conversations WHERE project_id = p.id AND user_id = $userId) AS conversation_count
+           (SELECT COUNT(*)
+              FROM conversations
+             WHERE project_id = p.id
+               AND user_id = $userId
+               AND archived_at IS NULL) AS conversation_count
     FROM projects p
     WHERE p.id = $id AND p.user_id = $userId`
 );
@@ -82,6 +89,11 @@ const deleteProjectStmt = database.query<
    `DELETE FROM projects
     WHERE id = $id AND user_id = $userId`
 );
+
+const deleteAllProjectsStmt = database.query<
+   Record<string, never>,
+   { $userId: string }
+>(`DELETE FROM projects WHERE user_id = $userId`);
 
 const projectExistsStmt = database.query<
    { id: string },
@@ -200,5 +212,13 @@ export const projectRepository = {
 
       deleteProjectStmt.run({ $id: projectId, $userId: userId });
       return true;
+   },
+
+   deleteAll(userId: string) {
+      const result = deleteAllProjectsStmt.run({ $userId: userId }) as {
+         changes?: number;
+      };
+
+      return Number(result?.changes ?? 0);
    },
 };

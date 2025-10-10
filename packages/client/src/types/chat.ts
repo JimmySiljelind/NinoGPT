@@ -14,6 +14,7 @@ export type ChatConversation = {
    updatedAt: Date;
    messageCount: number;
    projectId: string | null;
+   archivedAt: Date | null;
 };
 
 export type ChatConversationDetail = ChatConversation & {

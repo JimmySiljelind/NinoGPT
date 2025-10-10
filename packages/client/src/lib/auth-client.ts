@@ -123,3 +123,60 @@ export async function logout(): Promise<void> {
       throw error;
    }
 }
+
+export async function updateProfile(params: {
+   email: string;
+   name: string;
+   phone: string;
+}): Promise<AppUser> {
+   try {
+      const data = await makeJsonRequest('/api/users/me', {
+         method: 'PATCH',
+         headers: {
+            'Content-Type': 'application/json',
+         },
+         body: JSON.stringify(params),
+      });
+
+      if (!data || typeof data !== 'object' || !('user' in data)) {
+         throw new ChatRequestError('Unexpected response from profile update.');
+      }
+
+      return parseUser(data.user as UserDto);
+   } catch (error) {
+      if (error instanceof ChatRequestError) {
+         throw error;
+      }
+
+      throw new ChatRequestError(extractErrorMessage(error));
+   }
+}
+
+export async function changePassword(params: {
+   currentPassword: string;
+   newPassword: string;
+}): Promise<AppUser> {
+   try {
+      const data = await makeJsonRequest('/api/users/me/password', {
+         method: 'PATCH',
+         headers: {
+            'Content-Type': 'application/json',
+         },
+         body: JSON.stringify(params),
+      });
+
+      if (!data || typeof data !== 'object' || !('user' in data)) {
+         throw new ChatRequestError(
+            'Unexpected response from password change.'
+         );
+      }
+
+      return parseUser(data.user as UserDto);
+   } catch (error) {
+      if (error instanceof ChatRequestError) {
+         throw error;
+      }
+
+      throw new ChatRequestError(extractErrorMessage(error));
+   }
+}
