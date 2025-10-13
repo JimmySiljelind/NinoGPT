@@ -2,6 +2,7 @@
 import type { Request, Response } from 'express';
 import { authController } from './controllers/auth.controller';
 import { chatController } from './controllers/chat.controller';
+import { imageChatController } from './controllers/image-chat.controller';
 import { conversationController } from './controllers/conversation.controller';
 import { projectController } from './controllers/project.controller';
 import { userController } from './controllers/user.controller';
@@ -66,6 +67,7 @@ router.delete(
 );
 
 router.post('/api/chat', requireAuth, chatController.sendMessage);
+router.post('/api/image-chat', requireAuth, imageChatController.generateImage);
 
 router.get('/api/projects', requireAuth, projectController.list);
 router.post('/api/projects', requireAuth, projectController.create);

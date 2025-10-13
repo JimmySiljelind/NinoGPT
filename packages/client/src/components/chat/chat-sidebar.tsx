@@ -5,6 +5,7 @@ import {
    ChevronRight,
    Folder,
    FolderPlus,
+   Image as ImageIcon,
    LogOut,
    MoreVertical,
    Pencil,
@@ -36,6 +37,7 @@ type ChatSidebarProps = {
    activeConversationId: string | null;
    onSelectConversation: (conversationId: string) => void;
    onNewConversation: () => void;
+   onNewImageConversation: () => void;
    onDeleteConversation: (conversationId: string) => Promise<void> | void;
    onCreateProject: (name: string) => Promise<ChatProject> | ChatProject;
    onRenameProject: (projectId: string, name: string) => Promise<void> | void;
@@ -68,6 +70,7 @@ export function ChatSidebar({
    activeConversationId,
    onSelectConversation,
    onNewConversation,
+   onNewImageConversation,
    onDeleteConversation,
    onCreateProject,
    onRenameProject,
@@ -226,6 +229,9 @@ export function ChatSidebar({
 
    const renderConversation = (conversation: ChatConversation) => {
       const isActive = conversation.id === activeConversationId;
+      const isImageConversation = conversation.type === 'image';
+      const imageCount = Math.floor(conversation.messageCount / 2);
+      const hasGeneratedImage = imageCount > 0;
 
       const handleAssign = (projectId: string | null) => {
          if (conversation.projectId === projectId) {
@@ -271,6 +277,7 @@ export function ChatSidebar({
                <div className="flex items-center justify-between gap-3">
                   <span className="truncate font-medium text-foreground">
                      {conversation.title}
+                     {isImageConversation ? ' (Image)' : ''}
                   </span>
                   <time
                      className="shrink-0 text-xs text-muted-foreground"
@@ -280,9 +287,13 @@ export function ChatSidebar({
                   </time>
                </div>
                <p className="mt-1 text-xs text-muted-foreground">
-                  {conversation.messageCount > 0
-                     ? `${conversation.messageCount} message${conversation.messageCount === 1 ? '' : 's'}`
-                     : 'No messages yet'}
+                  {isImageConversation
+                     ? hasGeneratedImage
+                        ? `${imageCount} image${imageCount === 1 ? '' : 's'}`
+                        : 'No images yet'
+                     : conversation.messageCount > 0
+                       ? `${conversation.messageCount} message${conversation.messageCount === 1 ? '' : 's'}`
+                       : 'No messages yet'}
                </p>
             </button>
             <DropdownMenu>
@@ -414,6 +425,14 @@ export function ChatSidebar({
                   aria-label="Start new chat"
                >
                   <Plus className="size-4" />
+               </Button>
+               <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={onNewImageConversation}
+                  aria-label="Start new image chat"
+               >
+                  <ImageIcon className="size-4" />
                </Button>
                <Button
                   size="icon"

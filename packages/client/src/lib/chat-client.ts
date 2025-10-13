@@ -1,6 +1,7 @@
 import type {
    ChatConversation,
    ChatConversationDetail,
+   ChatConversationType,
    ChatMessage,
    ChatRole,
 } from '@/types/chat';
@@ -25,6 +26,7 @@ export class ChatRequestError extends Error {
 type ConversationSummaryDto = {
    id: string;
    title: string;
+   type?: ChatConversationType;
    createdAt: string;
    updatedAt: string;
    messageCount?: number;
@@ -57,9 +59,12 @@ function parseMessage(dto: MessageDto): ChatMessage {
 function parseConversationSummary(
    dto: ConversationSummaryDto
 ): ChatConversation {
+   const type: ChatConversationType = dto.type === 'image' ? 'image' : 'text';
+
    return {
       id: dto.id,
       title: dto.title,
+      type,
       createdAt: new Date(dto.createdAt),
       updatedAt: new Date(dto.updatedAt),
       messageCount: dto.messageCount ?? 0,
@@ -147,20 +152,34 @@ export async function listConversations(): Promise<ChatConversation[]> {
    );
 }
 
+type CreateConversationOptions = {
+   projectId?: string | null;
+   type?: ChatConversationType;
+};
+
 export async function createConversation(
-   projectId?: string | null
+   options: CreateConversationOptions = {}
 ): Promise<ChatConversation> {
-   const hasProject = typeof projectId !== 'undefined';
-   const body = hasProject ? JSON.stringify({ projectId }) : undefined;
+   const payload: Record<string, unknown> = {};
+
+   if (Object.prototype.hasOwnProperty.call(options, 'projectId')) {
+      payload.projectId = options.projectId ?? null;
+   }
+
+   if (options.type) {
+      payload.type = options.type;
+   }
+
+   const hasPayload = Object.keys(payload).length > 0;
 
    const data = await makeJsonRequest('/api/conversations', {
       method: 'POST',
-      headers: hasProject
+      headers: hasPayload
          ? {
               'Content-Type': 'application/json',
            }
          : undefined,
-      body,
+      body: hasPayload ? JSON.stringify(payload) : undefined,
    });
 
    if (!data || !data.conversation) {
@@ -200,6 +219,29 @@ export async function sendChatMessage(
 
    if (!data || !data.conversation) {
       throw new ChatRequestError('Failed to send message.');
+   }
+
+   return parseConversationDetail(data.conversation as ConversationDetailDto);
+}
+
+type SendImagePayload = {
+   prompt: string;
+   conversationId: string;
+};
+
+export async function generateImageMessage(
+   payload: SendImagePayload
+): Promise<ChatConversationDetail> {
+   const data = await makeJsonRequest('/api/image-chat', {
+      method: 'POST',
+      headers: {
+         'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+   });
+
+   if (!data || !data.conversation) {
+      throw new ChatRequestError('Failed to generate image.');
    }
 
    return parseConversationDetail(data.conversation as ConversationDetailDto);

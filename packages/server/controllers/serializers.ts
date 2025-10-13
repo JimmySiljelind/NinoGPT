@@ -14,6 +14,7 @@ type SerializedConversationMessage = {
 type SerializedConversationSummary = {
    id: string;
    title: string;
+   type: ConversationRecord['type'];
    createdAt: string;
    updatedAt: string;
    messageCount: number;
@@ -50,6 +51,7 @@ export function serializeConversationSummary(
    return {
       id: conversation.id,
       title: conversation.title,
+      type: conversation.type,
       createdAt: conversation.createdAt.toISOString(),
       updatedAt: conversation.updatedAt.toISOString(),
       messageCount: conversation.messages.length,

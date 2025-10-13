@@ -1,7 +1,8 @@
-import { Fragment } from 'react';
+import { Fragment, useCallback } from 'react';
+import { Download } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
-import type { ChatMessage } from '@/types/chat';
+import type { ChatConversationType, ChatMessage } from '@/types/chat';
 
 type MessageSegment =
    | { type: 'text'; content: string }
@@ -56,7 +57,15 @@ function formatTimestamp(date: Date) {
    }).format(date);
 }
 
-export function ChatMessageItem({ message }: { message: ChatMessage }) {
+type ChatMessageItemProps = {
+   message: ChatMessage;
+   conversationType: ChatConversationType;
+};
+
+export function ChatMessageItem({
+   message,
+   conversationType,
+}: ChatMessageItemProps) {
    if (message.role === 'system') {
       return (
          <div className="flex justify-center">
@@ -68,15 +77,46 @@ export function ChatMessageItem({ message }: { message: ChatMessage }) {
    }
 
    const isUser = message.role === 'user';
+   const shouldRenderImage =
+      conversationType === 'image' &&
+      message.role === 'assistant' &&
+      message.content.startsWith('data:image');
    const bubbleClasses = cn(
       'max-w-[70ch] rounded-2xl px-4 py-3 text-sm shadow-sm flex flex-col gap-3',
       isUser
          ? 'bg-primary text-primary-foreground rounded-br-md'
-         : 'bg-muted text-foreground rounded-bl-md'
+         : 'bg-muted text-foreground rounded-bl-md',
+      shouldRenderImage && !isUser ? 'bg-transparent p-0 shadow-none' : ''
    );
 
    const timestamp = formatTimestamp(message.createdAt);
-   const segments = parseMessageSegments(message.content);
+   const segments = shouldRenderImage
+      ? []
+      : parseMessageSegments(message.content);
+
+   const handleDownloadImage = useCallback(() => {
+      if (!shouldRenderImage || typeof window === 'undefined') {
+         return;
+      }
+
+      try {
+         const link = document.createElement('a');
+         link.href = message.content;
+
+         const extensionMatch = /^data:image\/([a-zA-Z0-9+]+);/i.exec(
+            message.content
+         );
+         const extension = extensionMatch?.[1] ?? 'png';
+         const iso = message.createdAt.toISOString().replace(/[:.]/g, '-');
+         link.download = `nino-image-${iso}.${extension}`;
+
+         document.body.appendChild(link);
+         link.click();
+         document.body.removeChild(link);
+      } catch (error) {
+         console.error('Failed to download image', error);
+      }
+   }, [message.content, message.createdAt, shouldRenderImage]);
 
    return (
       <div
@@ -103,28 +143,50 @@ export function ChatMessageItem({ message }: { message: ChatMessage }) {
                </time>
             </div>
             <div className={bubbleClasses}>
-               {segments.map((segment, index) => (
-                  <Fragment key={`${segment.type}-${index}`}>
-                     {segment.type === 'text' ? (
-                        <div className="whitespace-pre-wrap leading-relaxed">
-                           {segment.content}
-                        </div>
-                     ) : (
-                        <figure className="relative overflow-hidden rounded-xl bg-[#151515] text-slate-100 shadow-inner ring-1 ring-zinc-700/40">
-                           {segment.language && (
-                              <figcaption className="absolute right-3 top-2 text-[0.65rem] uppercase tracking-wider text-slate-400">
-                                 {segment.language}
-                              </figcaption>
-                           )}
-                           <pre className="max-h-[28rem] overflow-auto px-4 pb-4 pt-6 text-[0.8rem] leading-relaxed">
-                              <code className="font-mono">
-                                 {segment.content}
-                              </code>
-                           </pre>
-                        </figure>
-                     )}
-                  </Fragment>
-               ))}
+               {shouldRenderImage ? (
+                  <>
+                     <figure className="relative overflow-hidden rounded-xl border border-border/60 bg-card">
+                        <img
+                           src={message.content}
+                           alt="Generated image"
+                           className="h-auto w-full object-cover"
+                        />
+                     </figure>
+                     <div className="flex justify-end">
+                        <button
+                           type="button"
+                           onClick={handleDownloadImage}
+                           className="inline-flex items-center gap-2 rounded-md border bg-card/80 px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-card/60 cursor-pointer"
+                        >
+                           <Download className="size-4" aria-hidden />
+                           <span>Download</span>
+                        </button>
+                     </div>
+                  </>
+               ) : (
+                  segments.map((segment, index) => (
+                     <Fragment key={`${segment.type}-${index}`}>
+                        {segment.type === 'text' ? (
+                           <div className="whitespace-pre-wrap leading-relaxed">
+                              {segment.content}
+                           </div>
+                        ) : (
+                           <figure className="relative overflow-hidden rounded-xl bg-[#151515] text-slate-100 shadow-inner ring-1 ring-zinc-700/40">
+                              {segment.language && (
+                                 <figcaption className="absolute right-3 top-2 text-[0.65rem] uppercase tracking-wider text-slate-400">
+                                    {segment.language}
+                                 </figcaption>
+                              )}
+                              <pre className="max-h-[28rem] overflow-auto px-4 pb-4 pt-6 text-[0.8rem] leading-relaxed">
+                                 <code className="font-mono">
+                                    {segment.content}
+                                 </code>
+                              </pre>
+                           </figure>
+                        )}
+                     </Fragment>
+                  ))
+               )}
             </div>
          </div>
          {isUser && <MessageAvatar role={message.role} />}
@@ -141,14 +203,18 @@ function MessageAvatar({ role }: { role: ChatMessage['role'] }) {
    );
 }
 
-export function ThinkingMessage() {
+type ThinkingMessageProps = {
+   label?: string;
+};
+
+export function ThinkingMessage({ label }: ThinkingMessageProps) {
    return (
       <div className="flex w-full items-start gap-3">
          <MessageAvatar role="assistant" />
          <div className="rounded-2xl bg-muted px-4 py-2 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-2">
                <span className="size-2 animate-pulse rounded-full bg-muted-foreground" />
-               <span>Thinking...</span>
+               <span>{label ?? 'Thinking...'}</span>
             </span>
          </div>
       </div>

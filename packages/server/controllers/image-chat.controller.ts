@@ -2,16 +2,16 @@ import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import z from 'zod';
 
-import { chatService } from '../services/chat.service';
+import { imageService } from '../services/image.service';
 import {
    conversationRepository,
    type ConversationMessage,
 } from '../repositories/conversation.repository';
 import { serializeConversation } from './serializers';
 
-const MAX_PROMPT_LENGTH = 2000;
+const MAX_PROMPT_LENGTH = 1000;
 
-const chatSchema = z.object({
+const imageChatSchema = z.object({
    prompt: z
       .string()
       .trim()
@@ -30,6 +30,15 @@ const chatSchema = z.object({
    }, z.string().uuid().optional()),
 });
 
+function ensureUser(req: Request, res: Response): string | null {
+   if (!req.user) {
+      res.status(401).json({ error: 'Not authenticated.' });
+      return null;
+   }
+
+   return req.user.id;
+}
+
 function buildTitleFromPrompt(prompt: string) {
    const trimmed = prompt.trim();
 
@@ -40,28 +49,19 @@ function buildTitleFromPrompt(prompt: string) {
    return trimmed.length > 48 ? `${trimmed.slice(0, 45)}...` : trimmed;
 }
 
-function ensureUser(req: Request, res: Response): string | null {
-   if (!req.user) {
-      res.status(401).json({ error: 'Not authenticated.' });
-      return null;
-   }
-
-   return req.user.id;
-}
-
-export const chatController = {
-   async sendMessage(req: Request, res: Response) {
+export const imageChatController = {
+   async generateImage(req: Request, res: Response) {
       const userId = ensureUser(req, res);
 
       if (!userId) {
          return;
       }
 
-      const parseResult = chatSchema.safeParse(req.body);
+      const parseResult = imageChatSchema.safeParse(req.body);
 
       if (!parseResult.success) {
          const issue = parseResult.error.issues[0];
-         const message = issue?.message ?? 'Invalid chat request.';
+         const message = issue?.message ?? 'Invalid image generation request.';
 
          res.status(400).json({
             error: message,
@@ -81,7 +81,7 @@ export const chatController = {
             userId,
             activeConversationId,
             null,
-            'text'
+            'image'
          );
       } catch (error) {
          const message =
@@ -98,24 +98,27 @@ export const chatController = {
          activeConversationId,
          title ?? ''
       );
-      conversationRepository.addMessage(userId, activeConversationId, {
+
+      const userMessage: ConversationMessage = {
          id: randomUUID(),
          role: 'user',
          content: prompt,
          createdAt: timestamp,
-      });
+      };
+
+      conversationRepository.addMessage(
+         userId,
+         activeConversationId,
+         userMessage
+      );
 
       try {
-         const response = await chatService.sendMessage(
-            prompt,
-            userId,
-            activeConversationId
-         );
+         const result = await imageService.generateImage(prompt);
 
          const assistantMessage: ConversationMessage = {
-            id: response.id,
+            id: randomUUID(),
             role: 'assistant',
-            content: response.message,
+            content: `data:image/png;base64,${result.base64}`,
             createdAt: new Date(),
          };
 
@@ -147,7 +150,7 @@ export const chatController = {
          );
 
          res.status(500).json({
-            error: 'Failed to generate a response.',
+            error: 'Failed to generate an image.',
             conversation: failedConversation
                ? serializeConversation(failedConversation)
                : undefined,

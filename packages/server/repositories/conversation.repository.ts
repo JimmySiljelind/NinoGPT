@@ -1,6 +1,7 @@
 ﻿import database from '../database';
 
 export type ConversationRole = 'user' | 'assistant' | 'system';
+export type ConversationType = 'text' | 'image';
 
 export type ConversationMessage = {
    id: string;
@@ -13,6 +14,7 @@ export type ConversationRecord = {
    id: string;
    userId: string;
    title: string;
+   type: ConversationType;
    createdAt: Date;
    updatedAt: Date;
    archivedAt: Date | null;
@@ -22,11 +24,22 @@ export type ConversationRecord = {
 };
 
 export const DEFAULT_CONVERSATION_TITLE = 'New chat';
+export const DEFAULT_IMAGE_CONVERSATION_TITLE = 'New image chat';
+
+const DEFAULT_TITLES: Record<ConversationType, string> = {
+   text: DEFAULT_CONVERSATION_TITLE,
+   image: DEFAULT_IMAGE_CONVERSATION_TITLE,
+};
+
+function getDefaultTitle(type: ConversationType): string {
+   return DEFAULT_TITLES[type] ?? DEFAULT_CONVERSATION_TITLE;
+}
 
 type ConversationRow = {
    id: string;
    user_id: string;
    title: string;
+   type: ConversationType;
    created_at: string;
    updated_at: string;
    archived_at: string | null;
@@ -49,6 +62,7 @@ const selectConversationStmt = database.query<
    `SELECT id,
            user_id,
            title,
+           type,
            created_at,
            updated_at,
            archived_at,
@@ -65,6 +79,7 @@ const selectConversationsStmt = database.query<
    `SELECT id,
            user_id,
            title,
+           type,
            created_at,
            updated_at,
            archived_at,
@@ -96,6 +111,7 @@ const insertConversationStmt = database.query<
       $id: string;
       $userId: string;
       $title: string;
+      $type: ConversationType;
       $createdAt: string;
       $updatedAt: string;
       $archivedAt: string | null;
@@ -103,8 +119,8 @@ const insertConversationStmt = database.query<
       $projectId: string | null;
    }
 >(
-   `INSERT OR IGNORE INTO conversations (id, user_id, title, created_at, updated_at, archived_at, last_response_id, project_id)
-    VALUES ($id, $userId, $title, $createdAt, $updatedAt, $archivedAt, $lastResponseId, $projectId)`
+   `INSERT OR IGNORE INTO conversations (id, user_id, title, type, created_at, updated_at, archived_at, last_response_id, project_id)
+    VALUES ($id, $userId, $title, $type, $createdAt, $updatedAt, $archivedAt, $lastResponseId, $projectId)`
 );
 
 const updateConversationMetaStmt = database.query<
@@ -194,6 +210,7 @@ const selectArchivedConversationsStmt = database.query<
    `SELECT id,
            user_id,
            title,
+           type,
            created_at,
            updated_at,
            archived_at,
@@ -261,6 +278,7 @@ function rowToConversation(
       id: row.id,
       userId: row.user_id,
       title: row.title,
+      type: row.type,
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
       archivedAt: row.archived_at ? new Date(row.archived_at) : null,
@@ -306,14 +324,16 @@ function fetchConversation(
 function createConversationIfMissing(
    conversationId: string,
    userId: string,
-   projectId: string | null = null
+   projectId: string | null = null,
+   type: ConversationType = 'text'
 ) {
    const now = new Date().toISOString();
 
    insertConversationStmt.run({
       $id: conversationId,
       $userId: userId,
-      $title: DEFAULT_CONVERSATION_TITLE,
+      $title: getDefaultTitle(type),
+      $type: type,
       $createdAt: now,
       $updatedAt: now,
       $archivedAt: null,
@@ -331,13 +351,22 @@ export const conversationRepository = {
       return rows.map((row) => rowToConversation(row, fetchMessages(row.id)));
    },
 
-   create(userId: string, conversationId: string, projectId: string | null) {
-      createConversationIfMissing(conversationId, userId, projectId);
+   create(
+      userId: string,
+      conversationId: string,
+      projectId: string | null,
+      type: ConversationType = 'text'
+   ) {
+      createConversationIfMissing(conversationId, userId, projectId, type);
 
       const conversation = fetchConversation(userId, conversationId);
 
       if (!conversation) {
          throw new Error('Conversation could not be created.');
+      }
+
+      if (conversation.type !== type) {
+         throw new Error('Conversation type mismatch.');
       }
 
       return conversation;
@@ -350,14 +379,19 @@ export const conversationRepository = {
    ensure(
       userId: string,
       conversationId: string,
-      projectId: string | null = null
+      projectId: string | null = null,
+      type: ConversationType = 'text'
    ) {
-      createConversationIfMissing(conversationId, userId, projectId);
+      createConversationIfMissing(conversationId, userId, projectId, type);
 
       let conversation = fetchConversation(userId, conversationId);
 
       if (!conversation) {
          throw new Error('Conversation could not be ensured.');
+      }
+
+      if (conversation.type !== type) {
+         throw new Error('Conversation type mismatch.');
       }
 
       if (conversation.archivedAt) {
@@ -435,7 +469,9 @@ export const conversationRepository = {
          throw new Error('Conversation not found when updating title.');
       }
 
-      if (current.title === DEFAULT_CONVERSATION_TITLE && title.trim()) {
+      const defaultTitle = getDefaultTitle(current.type);
+
+      if (current.title === defaultTitle && title.trim()) {
          const updatedAt = new Date().toISOString();
 
          updateConversationMetaStmt.run({

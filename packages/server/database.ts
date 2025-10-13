@@ -55,6 +55,7 @@ CREATE TABLE IF NOT EXISTS conversations (
    id TEXT PRIMARY KEY,
    user_id TEXT NOT NULL,
    title TEXT NOT NULL,
+   type TEXT NOT NULL DEFAULT 'text',
    created_at TEXT NOT NULL,
    updated_at TEXT NOT NULL,
    archived_at TEXT,
@@ -115,6 +116,10 @@ const hasProjectColumn = conversationColumns.some(
    (column) => column.name === 'project_id'
 );
 
+const hasConversationTypeColumn = conversationColumns.some(
+   (column) => column.name === 'type'
+);
+
 if (!hasProjectColumn) {
    database.exec(
       `ALTER TABLE conversations ADD COLUMN project_id TEXT REFERENCES projects(id) ON DELETE CASCADE`
@@ -127,6 +132,12 @@ const hasArchivedColumn = conversationColumns.some(
 
 if (!hasArchivedColumn) {
    database.exec(`ALTER TABLE conversations ADD COLUMN archived_at TEXT`);
+}
+
+if (!hasConversationTypeColumn) {
+   database.exec(
+      `ALTER TABLE conversations ADD COLUMN type TEXT NOT NULL DEFAULT 'text'`
+   );
 }
 
 database.exec(`

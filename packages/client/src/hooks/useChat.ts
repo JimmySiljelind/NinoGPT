@@ -7,6 +7,7 @@ import {
    deleteAllConversations as deleteAllConversationsRequest,
    deleteConversation as deleteConversationRequest,
    deleteArchivedConversations as deleteArchivedConversationsRequest,
+   generateImageMessage,
    getConversation,
    listArchivedConversations,
    listConversations,
@@ -22,10 +23,13 @@ import {
    renameProject as renameProjectApi,
 } from '@/lib/project-client';
 import { createId } from '@/lib/id';
-import type {
-   ChatConversation,
-   ChatConversationDetail,
-   ChatMessage,
+import {
+   DEFAULT_IMAGE_CONVERSATION_TITLE,
+   DEFAULT_TEXT_CONVERSATION_TITLE,
+   type ChatConversation,
+   type ChatConversationDetail,
+   type ChatConversationType,
+   type ChatMessage,
 } from '@/types/chat';
 import type { ChatProject } from '@/types/project';
 
@@ -42,7 +46,7 @@ type UseChatReturn = {
    globalError: string | null;
    sendMessage: (input: string) => Promise<void>;
    selectConversation: (conversationId: string) => void;
-   startNewConversation: () => Promise<void>;
+   startNewConversation: (type?: ChatConversationType) => Promise<void>;
    deleteConversation: (conversationId: string) => Promise<void>;
    archiveConversation: (conversationId: string) => Promise<void>;
    unarchiveConversation: (conversationId: string) => Promise<void>;
@@ -61,32 +65,52 @@ type UseChatReturn = {
    resetChat: () => Promise<void>;
 };
 
-const DEFAULT_CONVERSATION_TITLE = 'New chat';
-
 function toConversationSummary(
    conversation: ChatConversation | ChatConversationDetail
 ): ChatConversation {
-   const { id, title, createdAt, updatedAt, messageCount, projectId } =
-      conversation;
-
-   return {
+   const {
       id,
       title,
+      type,
       createdAt,
       updatedAt,
       messageCount,
       projectId,
+      archivedAt,
+   } = conversation;
+
+   return {
+      id,
+      title,
+      type,
+      createdAt,
+      updatedAt,
+      messageCount,
+      projectId,
+      archivedAt: archivedAt ?? null,
    };
 }
 
-function deriveTitle(currentTitle: string, latestPrompt: string) {
-   if (currentTitle && currentTitle !== DEFAULT_CONVERSATION_TITLE) {
+function getDefaultTitleForType(type: ChatConversationType) {
+   return type === 'image'
+      ? DEFAULT_IMAGE_CONVERSATION_TITLE
+      : DEFAULT_TEXT_CONVERSATION_TITLE;
+}
+
+function deriveTitle(
+   currentTitle: string,
+   latestPrompt: string,
+   type: ChatConversationType
+) {
+   const defaultTitle = getDefaultTitleForType(type);
+
+   if (currentTitle && currentTitle !== defaultTitle) {
       return currentTitle;
    }
 
    const trimmed = latestPrompt.trim();
    if (!trimmed) {
-      return DEFAULT_CONVERSATION_TITLE;
+      return defaultTitle;
    }
 
    return trimmed.length > 48 ? `${trimmed.slice(0, 45)}...` : trimmed;
@@ -342,25 +366,28 @@ export function useChat(): UseChatReturn {
       [ensureConversationState]
    );
 
-   const startNewConversation = useCallback(async () => {
-      try {
-         const conversation = await createConversation();
+   const startNewConversation = useCallback(
+      async (type: ChatConversationType = 'text') => {
+         try {
+            const conversation = await createConversation({ type });
 
-         setConversations((prev) =>
-            promoteConversation(prev, conversation.id, () => conversation)
-         );
-         setMessagesMap((prev) => ({ ...prev, [conversation.id]: [] }));
-         setErrors((prev) => ({ ...prev, [conversation.id]: null }));
-         setActiveConversationId(conversation.id);
-         setGlobalError(null);
-      } catch (error) {
-         const message =
-            error instanceof Error
-               ? error.message
-               : 'Failed to create conversation.';
-         setGlobalError(message);
-      }
-   }, []);
+            setConversations((prev) =>
+               promoteConversation(prev, conversation.id, () => conversation)
+            );
+            setMessagesMap((prev) => ({ ...prev, [conversation.id]: [] }));
+            setErrors((prev) => ({ ...prev, [conversation.id]: null }));
+            setActiveConversationId(conversation.id);
+            setGlobalError(null);
+         } catch (error) {
+            const message =
+               error instanceof Error
+                  ? error.message
+                  : 'Failed to create conversation.';
+            setGlobalError(message);
+         }
+      },
+      []
+   );
 
    const sendMessage = useCallback(
       async (input: string) => {
@@ -378,6 +405,12 @@ export function useChat(): UseChatReturn {
          const conversationId = activeConversationId;
 
          ensureConversationState(conversationId);
+
+         const activeConversationSummary =
+            conversations.find((item) => item.id === conversationId) ?? null;
+         const conversationType: ChatConversationType =
+            activeConversationSummary?.type ?? 'text';
+         const defaultTitle = getDefaultTitleForType(conversationType);
 
          const now = new Date();
          const userMessage: ChatMessage = {
@@ -400,66 +433,86 @@ export function useChat(): UseChatReturn {
             promoteConversation(prev, conversationId, (current) => ({
                id: current?.id ?? conversationId,
                title: deriveTitle(
-                  current?.title ?? DEFAULT_CONVERSATION_TITLE,
-                  trimmed
+                  current?.title ?? defaultTitle,
+                  trimmed,
+                  current?.type ?? conversationType
                ),
+               type: current?.type ?? conversationType,
                createdAt: current?.createdAt ?? now,
                updatedAt: now,
                messageCount: (current?.messageCount ?? 0) + 1,
                projectId: current?.projectId ?? null,
+               archivedAt: current?.archivedAt ?? null,
             }))
          );
 
          try {
-            const conversation = await sendChatMessage({
-               prompt: trimmed,
-               conversationId,
-            });
+            const updatedConversation =
+               conversationType === 'image'
+                  ? await generateImageMessage({
+                       prompt: trimmed,
+                       conversationId,
+                    })
+                  : await sendChatMessage({
+                       prompt: trimmed,
+                       conversationId,
+                    });
 
             setMessagesMap((prev) => ({
                ...prev,
-               [conversation.id]: conversation.messages,
+               [updatedConversation.id]: updatedConversation.messages,
             }));
 
             setConversations((prev) =>
-               promoteConversation(prev, conversation.id, () =>
-                  toConversationSummary(conversation)
+               promoteConversation(prev, updatedConversation.id, () =>
+                  toConversationSummary(updatedConversation)
                )
             );
 
-            setErrors((prev) => ({ ...prev, [conversation.id]: null }));
+            setErrors((prev) => ({
+               ...prev,
+               [updatedConversation.id]: null,
+            }));
          } catch (error) {
-            let message = 'Unexpected error';
-            let conversation: ChatConversationDetail | undefined;
+            const defaultErrorMessage =
+               conversationType === 'image'
+                  ? 'Failed to generate image.'
+                  : 'Failed to send message.';
+            let message = defaultErrorMessage;
+            let failedConversation: ChatConversationDetail | undefined;
 
             if (error instanceof ChatRequestError) {
-               message = error.message;
-               conversation = error.conversation;
-            } else if (error instanceof Error) {
+               message = error.message || defaultErrorMessage;
+               failedConversation = error.conversation;
+            } else if (error instanceof Error && error.message) {
                message = error.message;
             }
+
+            const fallbackContent =
+               message ||
+               (conversationType === 'image'
+                  ? 'Something went wrong while generating your image. Please try again.'
+                  : 'Something went wrong while sending your message. Please try again.');
 
             const fallbackMessage: ChatMessage = {
                id: createId(),
                role: 'system',
-               content:
-                  message ||
-                  'Something went wrong while sending your message. Please try again.',
+               content: fallbackContent,
                createdAt: new Date(),
             };
 
-            if (conversation) {
+            if (failedConversation) {
                setMessagesMap((prev) => ({
                   ...prev,
-                  [conversation.id]: [
-                     ...conversation.messages,
+                  [failedConversation.id]: [
+                     ...failedConversation.messages,
                      fallbackMessage,
                   ],
                }));
 
                setConversations((prev) =>
-                  promoteConversation(prev, conversation.id, () =>
-                     toConversationSummary(conversation)
+                  promoteConversation(prev, failedConversation.id, () =>
+                     toConversationSummary(failedConversation)
                   )
                );
             } else {
@@ -482,6 +535,7 @@ export function useChat(): UseChatReturn {
       },
       [
          activeConversationId,
+         conversations,
          ensureConversationState,
          isLoadingConversations,
          isSending,
@@ -1097,7 +1151,7 @@ export function useChat(): UseChatReturn {
    );
 
    const resetChat = useCallback(
-      () => startNewConversation(),
+      () => startNewConversation('text'),
       [startNewConversation]
    );
 

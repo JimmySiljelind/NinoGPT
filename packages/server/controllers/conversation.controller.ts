@@ -1,7 +1,10 @@
 ﻿import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 
-import { conversationRepository } from '../repositories/conversation.repository';
+import {
+   conversationRepository,
+   type ConversationType,
+} from '../repositories/conversation.repository';
 import { projectRepository } from '../repositories/project.repository';
 import {
    serializeConversation,
@@ -15,6 +18,10 @@ function ensureUser(req: Request, res: Response): string | null {
    }
 
    return req.user.id;
+}
+
+function normalizeConversationType(input: unknown): ConversationType {
+   return input === 'image' ? 'image' : 'text';
 }
 
 export const conversationController = {
@@ -44,6 +51,9 @@ export const conversationController = {
          typeof req.body?.projectId === 'string'
             ? (req.body.projectId as string)
             : null;
+      const type = normalizeConversationType(
+         (req.body as { type?: unknown } | undefined)?.type
+      );
 
       if (projectId && !projectRepository.exists(userId, projectId)) {
          res.status(404).json({ error: 'Project not found.' });
@@ -54,7 +64,8 @@ export const conversationController = {
          const conversation = conversationRepository.create(
             userId,
             randomUUID(),
-            projectId
+            projectId,
+            type
          );
          res.status(201).json({
             conversation: serializeConversationSummary(conversation),

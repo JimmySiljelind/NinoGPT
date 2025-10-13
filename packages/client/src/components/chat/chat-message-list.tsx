@@ -1,14 +1,19 @@
 import { useEffect, useRef } from 'react';
 
 import { ChatMessageItem, ThinkingMessage } from './chat-message';
-import type { ChatMessage } from '@/types/chat';
+import type { ChatConversationType, ChatMessage } from '@/types/chat';
 
 type ChatMessageListProps = {
    messages: ChatMessage[];
    isLoading: boolean;
+   conversationType: ChatConversationType;
 };
 
-export function ChatMessageList({ messages, isLoading }: ChatMessageListProps) {
+export function ChatMessageList({
+   messages,
+   isLoading,
+   conversationType,
+}: ChatMessageListProps) {
    const endRef = useRef<HTMLDivElement | null>(null);
 
    useEffect(() => {
@@ -29,9 +34,21 @@ export function ChatMessageList({ messages, isLoading }: ChatMessageListProps) {
    return (
       <div className="flex h-full flex-col gap-4">
          {messages.map((message) => (
-            <ChatMessageItem key={message.id} message={message} />
+            <ChatMessageItem
+               key={message.id}
+               message={message}
+               conversationType={conversationType}
+            />
          ))}
-         {isLoading && <ThinkingMessage />}
+         {isLoading && (
+            <ThinkingMessage
+               label={
+                  conversationType === 'image'
+                     ? 'Generating image...'
+                     : 'Thinking...'
+               }
+            />
+         )}
          <div ref={endRef} />
       </div>
    );

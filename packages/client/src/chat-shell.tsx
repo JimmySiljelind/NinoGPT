@@ -8,7 +8,7 @@ import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { SettingsPage } from '@/components/settings/settings-page';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Button } from '@/components/ui/button';
-import { Send } from 'lucide-react';
+import { Image as ImageIcon, Send } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { useChat } from '@/hooks/useChat';
 
@@ -80,11 +80,18 @@ export function ChatShell({
       [conversations, activeConversationId]
    );
 
+   const activeConversationType = activeConversation?.type ?? 'text';
+
    const canSubmit =
       inputValue.trim().length > 0 &&
       !isSending &&
       !isLoadingConversations &&
       Boolean(activeConversationId);
+
+   const inputPlaceholder =
+      activeConversationType === 'image'
+         ? 'Describe the image you want to create'
+         : 'Ask anything';
 
    useEffect(() => {
       const el = textareaRef.current;
@@ -146,7 +153,12 @@ export function ChatShell({
 
    const startNewChat = useCallback(() => {
       setView('chat');
-      void startNewConversation();
+      void startNewConversation('text');
+   }, [startNewConversation]);
+
+   const startNewImageChat = useCallback(() => {
+      setView('chat');
+      void startNewConversation('image');
    }, [startNewConversation]);
 
    const openSettings = useCallback(() => {
@@ -163,10 +175,12 @@ export function ChatShell({
       }
 
       if (activeConversation) {
-         return `Last updated ${formatUpdatedAt(activeConversation.updatedAt)}`;
+         const prefix =
+            activeConversationType === 'image' ? 'Image chat' : 'Chat';
+         return `${prefix} · Last updated ${formatUpdatedAt(activeConversation.updatedAt)}`;
       }
 
-      return 'Start a conversation to begin.';
+      return 'Start a chat to begin.';
    })();
 
    return (
@@ -177,6 +191,7 @@ export function ChatShell({
             activeConversationId={activeConversationId}
             onSelectConversation={selectConversation}
             onNewConversation={startNewChat}
+            onNewImageConversation={startNewImageChat}
             onDeleteConversation={deleteConversation}
             onCreateProject={createProject}
             onRenameProject={renameProject}
@@ -225,7 +240,6 @@ export function ChatShell({
                         </p>
                      </div>
                      <div className="hidden items-center gap-2 sm:flex">
-                        <ThemeToggle className="shrink-0" />
                         <Button
                            variant="outline"
                            size="sm"
@@ -234,6 +248,17 @@ export function ChatShell({
                         >
                            New chat
                         </Button>
+                        <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={startNewImageChat}
+                           disabled={isLoadingConversations || isSending}
+                           className="flex items-center gap-2 border bg-white/4"
+                        >
+                           <ImageIcon className="h-4 w-4" aria-hidden />
+                           Image chat
+                        </Button>
+                        <ThemeToggle className="shrink-0" />
                      </div>
                   </header>
                   {(error || globalError) && (
@@ -262,6 +287,9 @@ export function ChatShell({
                                  value={conversation.id}
                               >
                                  {conversation.title}
+                                 {conversation.type === 'image'
+                                    ? ' (Image)'
+                                    : ''}
                               </option>
                            ))}
                         </select>
@@ -273,6 +301,16 @@ export function ChatShell({
                         >
                            New chat
                         </Button>
+                        <Button
+                           variant="ghost"
+                           size="sm"
+                           onClick={startNewImageChat}
+                           disabled={isLoadingConversations || isSending}
+                           className="flex items-center gap-2"
+                        >
+                           <ImageIcon className="h-4 w-4" aria-hidden />
+                           Image chat
+                        </Button>
                         <ThemeToggle className="shrink-0" />
                      </div>
                      <div className="flex flex-1 min-h-0">
@@ -281,6 +319,7 @@ export function ChatShell({
                               <ChatMessageList
                                  messages={messages}
                                  isLoading={isSending || isLoadingConversations}
+                                 conversationType={activeConversationType}
                               />
                            </div>
                            <div className="mt-auto sticky bottom-0 z-10 pb-4 sm:pb-5">
@@ -295,7 +334,7 @@ export function ChatShell({
                                        setInputValue(event.target.value)
                                     }
                                     onKeyDown={handleKeyDown}
-                                    placeholder="Ask anything"
+                                    placeholder={inputPlaceholder}
                                     spellCheck
                                     rows={1}
                                     className="min-h-[50px] max-h-[150px] w-full resize-none overflow-y-auto rounded-3xl border border-border/50 bg-card/98 px-4 py-2.5 pr-16 text-base shadow-sm transition focus-visible:ring-0 focus-visible:ring-offset-0 placeholder:text-muted-foreground"
@@ -311,8 +350,19 @@ export function ChatShell({
                                     size="icon"
                                     className="absolute top-1/2 right-1 h-10 w-10 -translate-y-1/2 rounded-full"
                                  >
-                                    <Send className="h-4 w-4" />
-                                    <span className="sr-only">Send</span>
+                                    {activeConversationType === 'image' ? (
+                                       <ImageIcon
+                                          className="h-4 w-4"
+                                          aria-hidden
+                                       />
+                                    ) : (
+                                       <Send className="h-4 w-4" aria-hidden />
+                                    )}
+                                    <span className="sr-only">
+                                       {activeConversationType === 'image'
+                                          ? 'Generate image'
+                                          : 'Send'}
+                                    </span>
                                  </Button>
                               </form>
                            </div>
