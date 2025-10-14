@@ -66,16 +66,7 @@ export function ChatMessageItem({
    message,
    conversationType,
 }: ChatMessageItemProps) {
-   if (message.role === 'system') {
-      return (
-         <div className="flex justify-center">
-            <div className="max-w-[42ch] rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-               {message.content}
-            </div>
-         </div>
-      );
-   }
-
+   const isSystem = message.role === 'system';
    const isUser = message.role === 'user';
    const shouldRenderImage =
       conversationType === 'image' &&
@@ -88,11 +79,6 @@ export function ChatMessageItem({
          : 'bg-muted text-foreground rounded-bl-md',
       shouldRenderImage && !isUser ? 'bg-transparent p-0 shadow-none' : ''
    );
-
-   const timestamp = formatTimestamp(message.createdAt);
-   const segments = shouldRenderImage
-      ? []
-      : parseMessageSegments(message.content);
 
    const handleDownloadImage = useCallback(() => {
       if (!shouldRenderImage || typeof window === 'undefined') {
@@ -117,6 +103,21 @@ export function ChatMessageItem({
          console.error('Failed to download image', error);
       }
    }, [message.content, message.createdAt, shouldRenderImage]);
+
+   if (isSystem) {
+      return (
+         <div className="flex justify-center">
+            <div className="max-w-[42ch] rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+               {message.content}
+            </div>
+         </div>
+      );
+   }
+
+   const timestamp = formatTimestamp(message.createdAt);
+   const segments = shouldRenderImage
+      ? []
+      : parseMessageSegments(message.content);
 
    return (
       <div

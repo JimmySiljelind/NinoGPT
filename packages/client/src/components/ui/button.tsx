@@ -54,4 +54,5 @@ function Button({
    );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- buttonVariants is shared styling metadata for Button.
 export { Button, buttonVariants };

@@ -32,7 +32,17 @@ export function attachUser(req: Request, res: Response, next: NextFunction) {
       return;
    }
 
-   const user = authService.verifyToken(token);
+   let user: ReturnType<typeof authService.verifyToken>;
+
+   try {
+      // Guard against tampered tokens raising unexpected verification errors.
+      user = authService.verifyToken(token);
+   } catch (error) {
+      console.error('Failed to verify auth token', {
+         message: error instanceof Error ? error.message : 'unknown error',
+      });
+      user = null;
+   }
 
    if (!user) {
       if (typeof cookieToken === 'string' && cookieToken) {

@@ -146,8 +146,20 @@ export const chatController = {
             activeConversationId
          );
 
-         res.status(500).json({
-            error: 'Failed to generate a response.',
+         // Normalize upstream errors into user-friendly status codes.
+         const message =
+            error instanceof Error ? error.message.toLowerCase() : '';
+         const isConfigError = message.includes('api key is not configured');
+         const isTimeout = message.includes('timed out');
+         const status = isConfigError ? 503 : isTimeout ? 504 : 500;
+         const errorMessage = isTimeout
+            ? 'The model request timed out. Please try again.'
+            : isConfigError
+              ? 'AI integration is currently unavailable.'
+              : 'Failed to generate a response.';
+
+         res.status(status).json({
+            error: errorMessage,
             conversation: failedConversation
                ? serializeConversation(failedConversation)
                : undefined,

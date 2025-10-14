@@ -27,6 +27,7 @@ const database = new Database(databaseFile, { create: true });
 database.exec(`
 PRAGMA journal_mode = WAL;
 PRAGMA foreign_keys = ON;
+PRAGMA busy_timeout = 5000;
 
 CREATE TABLE IF NOT EXISTS users (
    id TEXT PRIMARY KEY,

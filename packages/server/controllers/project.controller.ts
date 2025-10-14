@@ -1,8 +1,21 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 
 import { projectRepository } from '../repositories/project.repository';
 import { serializeProject } from './serializers';
+
+const projectIdSchema = z.string().uuid('Invalid project id.');
+
+const projectNameSchema = z
+   .string()
+   .trim()
+   .min(1, 'Project name is required.')
+   .max(120, 'Project name is too long.');
+
+const projectPayloadSchema = z.object({
+   name: projectNameSchema,
+});
 
 function ensureUser(req: Request, res: Response): string | null {
    if (!req.user) {
@@ -11,6 +24,34 @@ function ensureUser(req: Request, res: Response): string | null {
    }
 
    return req.user.id;
+}
+
+function parseProjectId(value: unknown, res: Response): string | null {
+   if (typeof value !== 'string') {
+      res.status(400).json({ error: 'Project id is required.' });
+      return null;
+   }
+
+   const trimmed = value.trim();
+
+   if (!trimmed) {
+      res.status(400).json({ error: 'Project id is required.' });
+      return null;
+   }
+
+   const result = projectIdSchema.safeParse(trimmed);
+
+   if (!result.success) {
+      res.status(400).json({ error: 'Invalid project id.' }); // Reject malformed identifiers early.
+      return null;
+   }
+
+   return result.data;
+}
+
+function getValidationMessage(error: z.ZodError) {
+   const issue = error.issues[0];
+   return issue?.message ?? 'Invalid project payload.';
 }
 
 export const projectController = {
@@ -33,16 +74,22 @@ export const projectController = {
          return;
       }
 
-      const name =
-         typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+      const payloadResult = projectPayloadSchema.safeParse(req.body ?? {});
 
-      if (!name) {
-         res.status(400).json({ error: 'Project name is required.' });
+      if (!payloadResult.success) {
+         res.status(400).json({
+            error: getValidationMessage(payloadResult.error),
+            details: payloadResult.error.flatten().fieldErrors,
+         });
          return;
       }
 
       try {
-         const project = projectRepository.create(userId, randomUUID(), name);
+         const project = projectRepository.create(
+            userId,
+            randomUUID(),
+            payloadResult.data.name
+         );
          res.status(201).json({ project: serializeProject(project) });
       } catch (error) {
          const message =
@@ -60,23 +107,28 @@ export const projectController = {
          return;
       }
 
-      const projectId = req.params.projectId;
+      const projectId = parseProjectId(req.params.projectId, res);
 
       if (!projectId) {
-         res.status(400).json({ error: 'Project id is required.' });
          return;
       }
 
-      const name =
-         typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+      const payloadResult = projectPayloadSchema.safeParse(req.body ?? {});
 
-      if (!name) {
-         res.status(400).json({ error: 'Project name is required.' });
+      if (!payloadResult.success) {
+         res.status(400).json({
+            error: getValidationMessage(payloadResult.error),
+            details: payloadResult.error.flatten().fieldErrors,
+         });
          return;
       }
 
       try {
-         const project = projectRepository.rename(userId, projectId, name);
+         const project = projectRepository.rename(
+            userId,
+            projectId,
+            payloadResult.data.name
+         );
 
          if (!project) {
             res.status(404).json({ error: 'Project not found.' });
@@ -100,10 +152,9 @@ export const projectController = {
          return;
       }
 
-      const projectId = req.params.projectId;
+      const projectId = parseProjectId(req.params.projectId, res);
 
       if (!projectId) {
-         res.status(400).json({ error: 'Project id is required.' });
          return;
       }
 

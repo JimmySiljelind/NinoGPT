@@ -7,13 +7,17 @@ import {
    getAuthCookieOptions,
    getClearAuthCookieOptions,
 } from '../config/auth-cookie';
+import { PASSWORD_MIN_LENGTH } from '../security/password';
 
 const MINIMUM_AGE_YEARS = 10;
 const MAXIMUM_AGE_YEARS = 120;
 
 const passwordSchema = z
    .string()
-   .min(8, 'Password must be at least 8 characters long.')
+   .min(
+      PASSWORD_MIN_LENGTH,
+      `Password must be at least ${PASSWORD_MIN_LENGTH} characters long.`
+   )
    .max(128, 'Password cannot exceed 128 characters.')
    .refine((value) => /[A-Z]/.test(value), {
       message: 'Password must include at least one uppercase letter.',
@@ -30,7 +34,7 @@ const registrationSchema = z.object({
    phone: z
       .string()
       .regex(
-         /^\(\+\d{1,3}\)\s?\d{6,15}$/,
+         /^\(\+\d{1,3}\)\s?\d{10,15}$/,
          'Phone number must include a country code and at least 10 digits.'
       )
       .transform((value) => value.trim()),

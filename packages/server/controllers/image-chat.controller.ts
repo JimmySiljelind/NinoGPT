@@ -149,8 +149,20 @@ export const imageChatController = {
             activeConversationId
          );
 
-         res.status(500).json({
-            error: 'Failed to generate an image.',
+         // Normalize upstream errors into user-friendly status codes.
+         const message =
+            error instanceof Error ? error.message.toLowerCase() : '';
+         const isConfigError = message.includes('api key is not configured');
+         const isTimeout = message.includes('timed out');
+         const status = isConfigError ? 503 : isTimeout ? 504 : 500;
+         const errorMessage = isTimeout
+            ? 'The image request timed out. Please try again.'
+            : isConfigError
+              ? 'Image generation is currently unavailable.'
+              : 'Failed to generate an image.';
+
+         res.status(status).json({
+            error: errorMessage,
             conversation: failedConversation
                ? serializeConversation(failedConversation)
                : undefined,

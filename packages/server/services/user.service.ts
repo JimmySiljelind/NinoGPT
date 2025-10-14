@@ -1,33 +1,13 @@
-import bcrypt from 'bcryptjs';
-
 import {
    userRepository,
    type UserRecord,
 } from '../repositories/user.repository';
-
-const PASSWORD_SALT_ROUNDS = 12;
-
-function hashPassword(password: string): string {
-   const trimmed = password.trim();
-
-   if (!trimmed) {
-      throw new Error('Password cannot be empty.');
-   }
-
-   return bcrypt.hashSync(trimmed, PASSWORD_SALT_ROUNDS);
-}
-
-function verifyPassword(password: string, hash: string): boolean {
-   if (!password) {
-      return false;
-   }
-
-   return bcrypt.compareSync(password, hash);
-}
-
-function normalizeEmail(email: string): string {
-   return email.trim().toLowerCase();
-}
+import { hashPassword, verifyPassword } from '../security/password';
+import {
+   normalizeEmail,
+   normalizeName,
+   normalizePhone,
+} from '../validation/user-data';
 
 export const userService = {
    updateProfile(params: {
@@ -37,11 +17,13 @@ export const userService = {
       phone: string;
    }): UserRecord {
       const email = normalizeEmail(params.email);
+      const name = normalizeName(params.name);
+      const phone = normalizePhone(params.phone);
 
       return userRepository.updateProfile(params.userId, {
          email,
-         name: params.name,
-         phone: params.phone,
+         name,
+         phone,
       });
    },
 

@@ -1,35 +1,43 @@
 {
-  "name": "ninogpt",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "dev": "bun run index.ts",
-    "format": "prettier --write .",
-    "prepare": "git config core.hooksPath .husky"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.28.4",
-    "@types/bun": "latest",
-    "@types/express": "^5.0.3",
-    "browserslist": "^4.26.3",
-    "caniuse-lite": "^1.0.30001746",
-    "esbuild": "^0.25.10",
-    "husky": "^9.1.7",
-    "lint-staged": "^16.1.6",
-    "prettier": "^3.6.2"
-  },
-  "peerDependencies": {
-    "typescript": "^5"
-  },
-  "workspaces": [
-    "packages/*"
-  ],
-  "dependencies": {
-    "express": "^5.1.0",
-    "semver": "^7.7.2"
-  },
-  "overrides": {
-    "esbuild": "0.21.5"
-  }
+   "name": "ninogpt",
+   "module": "index.ts",
+   "type": "module",
+   "private": true,
+   "scripts": {
+      "dev": "bun run index.ts",
+      "format": "prettier --write .",
+      "format:check": "prettier --check .",
+      "lint:format": "bunx prettier --check .",
+      "lint:client": "bun run --filter client lint",
+      "lint": "bun run lint:format && bun run lint:client",
+      "typecheck": "bun run --filter server typecheck && bun run --filter client typecheck",
+      "test": "bun test",
+      "audit": "bunx npm audit --production",
+      "ci": "bun run lint && bun run typecheck && bun run test",
+      "prepare": "git config core.hooksPath .husky"
+   },
+   "devDependencies": {
+      "@babel/core": "^7.28.4",
+      "@types/bun": "latest",
+      "@types/express": "^5.0.3",
+      "browserslist": "^4.26.3",
+      "caniuse-lite": "^1.0.30001746",
+      "esbuild": "^0.25.10",
+      "husky": "^9.1.7",
+      "lint-staged": "^16.1.6",
+      "prettier": "^3.6.2"
+   },
+   "peerDependencies": {
+      "typescript": "^5"
+   },
+   "workspaces": [
+      "packages/*"
+   ],
+   "dependencies": {
+      "express": "^5.1.0",
+      "semver": "^7.7.2"
+   },
+   "overrides": {
+      "esbuild": "0.21.5"
+   }
 }

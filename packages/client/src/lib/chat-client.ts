@@ -103,7 +103,19 @@ export async function makeJsonRequest(
       });
 
       const text = await response.text();
-      const data = text ? (JSON.parse(text) as JsonValue) : undefined;
+      let data: JsonValue;
+
+      if (text) {
+         try {
+            data = JSON.parse(text) as JsonValue;
+         } catch {
+            throw new ChatRequestError(
+               'Received malformed JSON from the server.'
+            ); // Fail fast on unexpected response bodies.
+         }
+      } else {
+         data = undefined;
+      }
 
       if (!response.ok) {
          const conversation =

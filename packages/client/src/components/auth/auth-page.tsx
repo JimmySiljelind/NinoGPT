@@ -122,12 +122,12 @@ export function AuthPage({
       }
 
       if (
-         password.length < 8 ||
+         password.length < 12 ||
          !/[A-Z]/.test(password) ||
          !/[^A-Za-z0-9]/.test(password)
       ) {
          setFormError(
-            'Password must be at least 8 characters long and include an uppercase letter and special character.'
+            'Password must be at least 12 characters long and include an uppercase letter and special character.'
          );
          return;
       }

@@ -7,6 +7,8 @@ type Task = {
    color: string;
 };
 
+type BunSubprocess = ReturnType<typeof Bun.spawn>;
+
 const RESET = '\u001B[0m';
 
 const tasks: Task[] = [
@@ -136,7 +138,7 @@ process.on('SIGTERM', () => {
 });
 
 const exitPromises = running.map(({ task, process: proc }) =>
-   proc.exited.then((code) => ({ task, code }))
+   proc.exited.then((code: number) => ({ task, code }))
 );
 
 const firstExit = await Promise.race(exitPromises);

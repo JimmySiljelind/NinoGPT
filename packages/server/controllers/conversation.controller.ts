@@ -1,5 +1,6 @@
-﻿import { randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
+import { z } from 'zod';
 
 import {
    conversationRepository,
@@ -11,6 +12,8 @@ import {
    serializeConversationSummary,
 } from './serializers';
 
+const TITLE_MAX_LENGTH = 120;
+
 function ensureUser(req: Request, res: Response): string | null {
    if (!req.user) {
       res.status(401).json({ error: 'Not authenticated.' });
@@ -20,7 +23,69 @@ function ensureUser(req: Request, res: Response): string | null {
    return req.user.id;
 }
 
-function normalizeConversationType(input: unknown): ConversationType {
+const conversationTypeSchema = z.enum(['text', 'image']);
+
+const createConversationSchema = z.object({
+   projectId: z.string().uuid('Invalid project id.').optional(),
+   type: conversationTypeSchema.optional(),
+});
+
+const updateConversationSchema = z
+   .object({
+      projectId: z
+         .union([z.string().uuid('Invalid project id.'), z.null()])
+         .optional(),
+      title: z
+         .string()
+         .trim()
+         .min(1, 'Title cannot be empty.')
+         .max(
+            TITLE_MAX_LENGTH,
+            `Title cannot exceed ${TITLE_MAX_LENGTH} characters.`
+         )
+         .optional(),
+   })
+   .refine(
+      (data) =>
+         typeof data.projectId !== 'undefined' ||
+         typeof data.title !== 'undefined',
+      { message: 'No updates were provided.' }
+   );
+
+const conversationIdSchema = z.string().uuid('Invalid conversation id.');
+
+function parseConversationIdParam(
+   value: unknown,
+   res: Response
+): string | null {
+   if (typeof value !== 'string') {
+      res.status(400).json({ error: 'Conversation id is required.' }); // Ensure missing params return 400.
+      return null;
+   }
+
+   const trimmed = value.trim();
+
+   if (!trimmed) {
+      res.status(400).json({ error: 'Conversation id is required.' });
+      return null;
+   }
+
+   const result = conversationIdSchema.safeParse(trimmed);
+
+   if (!result.success) {
+      res.status(400).json({ error: 'Invalid conversation id.' }); // Guard against malformed UUIDs.
+      return null;
+   }
+
+   return result.data;
+}
+
+function getValidationMessage(error: z.ZodError): string {
+   const issue = error.issues[0];
+   return issue?.message ?? 'Invalid request payload.';
+}
+
+function normalizeType(input: ConversationType | undefined): ConversationType {
    return input === 'image' ? 'image' : 'text';
 }
 
@@ -47,13 +112,17 @@ export const conversationController = {
          return;
       }
 
-      const projectId =
-         typeof req.body?.projectId === 'string'
-            ? (req.body.projectId as string)
-            : null;
-      const type = normalizeConversationType(
-         (req.body as { type?: unknown } | undefined)?.type
-      );
+      const payloadResult = createConversationSchema.safeParse(req.body ?? {});
+
+      if (!payloadResult.success) {
+         res.status(400).json({
+            error: getValidationMessage(payloadResult.error),
+            details: payloadResult.error.flatten().fieldErrors,
+         });
+         return;
+      }
+
+      const { projectId, type } = payloadResult.data;
 
       if (projectId && !projectRepository.exists(userId, projectId)) {
          res.status(404).json({ error: 'Project not found.' });
@@ -64,9 +133,10 @@ export const conversationController = {
          const conversation = conversationRepository.create(
             userId,
             randomUUID(),
-            projectId,
-            type
+            projectId ?? null,
+            normalizeType(type)
          );
+
          res.status(201).json({
             conversation: serializeConversationSummary(conversation),
          });
@@ -86,17 +156,19 @@ export const conversationController = {
          return;
       }
 
-      const conversationId = req.params.conversationId;
+      const conversationId = parseConversationIdParam(
+         req.params.conversationId,
+         res
+      );
 
       if (!conversationId) {
-         res.status(400).json({ error: 'Conversation id is required.' });
          return;
       }
 
       const conversation = conversationRepository.get(userId, conversationId);
 
       if (!conversation) {
-         res.status(404).json({ error: 'Conversation not found' });
+         res.status(404).json({ error: 'Conversation not found.' });
          return;
       }
 
@@ -110,39 +182,37 @@ export const conversationController = {
          return;
       }
 
-      const conversationId = req.params.conversationId;
+      const conversationId = parseConversationIdParam(
+         req.params.conversationId,
+         res
+      );
 
       if (!conversationId) {
-         res.status(400).json({ error: 'Conversation id is required.' });
          return;
       }
 
-      const { projectId, title } = (req.body ?? {}) as {
-         projectId?: string | null;
-         title?: string;
-      };
+      const payloadResult = updateConversationSchema.safeParse(req.body ?? {});
 
-      if (typeof projectId === 'undefined' && typeof title === 'undefined') {
-         res.status(400).json({ error: 'No updates were provided.' });
+      if (!payloadResult.success) {
+         res.status(400).json({
+            error: getValidationMessage(payloadResult.error),
+            details: payloadResult.error.flatten().fieldErrors,
+         });
          return;
       }
+
+      const { projectId, title } = payloadResult.data;
 
       try {
          let conversation = conversationRepository.get(userId, conversationId);
 
          if (!conversation) {
-            res.status(404).json({ error: 'Conversation not found' });
+            res.status(404).json({ error: 'Conversation not found.' });
             return;
          }
 
          if (typeof projectId !== 'undefined') {
-            const normalizedProjectId =
-               projectId === null || projectId === '' ? null : projectId;
-
-            if (
-               normalizedProjectId &&
-               !projectRepository.exists(userId, normalizedProjectId)
-            ) {
+            if (projectId && !projectRepository.exists(userId, projectId)) {
                res.status(404).json({ error: 'Project not found.' });
                return;
             }
@@ -150,11 +220,11 @@ export const conversationController = {
             const updated = conversationRepository.setProject(
                userId,
                conversationId,
-               normalizedProjectId
+               projectId ?? null
             );
 
             if (!updated) {
-               res.status(404).json({ error: 'Conversation not found' });
+               res.status(404).json({ error: 'Conversation not found.' });
                return;
             }
 
@@ -170,7 +240,7 @@ export const conversationController = {
          }
 
          if (!conversation) {
-            res.status(404).json({ error: 'Conversation not found' });
+            res.status(404).json({ error: 'Conversation not found.' });
             return;
          }
 
@@ -193,17 +263,19 @@ export const conversationController = {
          return;
       }
 
-      const conversationId = req.params.conversationId;
+      const conversationId = parseConversationIdParam(
+         req.params.conversationId,
+         res
+      );
 
       if (!conversationId) {
-         res.status(400).json({ error: 'Conversation id is required.' });
          return;
       }
 
       const removed = conversationRepository.delete(userId, conversationId);
 
       if (!removed) {
-         res.status(404).json({ error: 'Conversation not found' });
+         res.status(404).json({ error: 'Conversation not found.' });
          return;
       }
 
@@ -231,10 +303,12 @@ export const conversationController = {
          return;
       }
 
-      const conversationId = req.params.conversationId;
+      const conversationId = parseConversationIdParam(
+         req.params.conversationId,
+         res
+      );
 
       if (!conversationId) {
-         res.status(400).json({ error: 'Conversation id is required.' });
          return;
       }
 
@@ -258,10 +332,12 @@ export const conversationController = {
          return;
       }
 
-      const conversationId = req.params.conversationId;
+      const conversationId = parseConversationIdParam(
+         req.params.conversationId,
+         res
+      );
 
       if (!conversationId) {
-         res.status(400).json({ error: 'Conversation id is required.' });
          return;
       }
 
