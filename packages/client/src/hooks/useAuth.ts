@@ -102,6 +102,9 @@ export function useAuth(): UseAuthReturn {
       }
 
       const handleUnauthorized = () => {
+         void logoutRequest().catch(() => {
+            // Ignore logout errors triggered by unauthorized responses.
+         });
          if (!userRef.current) {
             setIsAuthenticating(false);
             return;

@@ -177,6 +177,9 @@ export const authController = {
 
    me(req: Request, res: Response) {
       if (!req.user) {
+         if (req.cookies?.[AUTH_COOKIE_NAME]) {
+            res.clearCookie(AUTH_COOKIE_NAME, getClearAuthCookieOptions());
+         }
          res.status(401).json({ error: 'Not authenticated.' });
          return;
       }

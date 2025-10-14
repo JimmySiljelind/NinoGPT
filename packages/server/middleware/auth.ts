@@ -1,6 +1,9 @@
 ﻿import type { NextFunction, Request, Response } from 'express';
 
-import { AUTH_COOKIE_NAME } from '../config/auth-cookie';
+import {
+   AUTH_COOKIE_NAME,
+   getClearAuthCookieOptions,
+} from '../config/auth-cookie';
 import { authService } from '../services/auth.service';
 
 function extractToken(req: Request): string | null {
@@ -19,7 +22,8 @@ function extractToken(req: Request): string | null {
    return null;
 }
 
-export function attachUser(req: Request, _res: Response, next: NextFunction) {
+export function attachUser(req: Request, res: Response, next: NextFunction) {
+   const cookieToken = req.cookies?.[AUTH_COOKIE_NAME];
    const token = extractToken(req);
 
    if (!token) {
@@ -31,6 +35,9 @@ export function attachUser(req: Request, _res: Response, next: NextFunction) {
    const user = authService.verifyToken(token);
 
    if (!user) {
+      if (typeof cookieToken === 'string' && cookieToken) {
+         res.clearCookie(AUTH_COOKIE_NAME, getClearAuthCookieOptions());
+      }
       req.user = undefined;
       next();
       return;
@@ -42,6 +49,9 @@ export function attachUser(req: Request, _res: Response, next: NextFunction) {
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
    if (!req.user) {
+      if (typeof req.cookies?.[AUTH_COOKIE_NAME] === 'string') {
+         res.clearCookie(AUTH_COOKIE_NAME, getClearAuthCookieOptions());
+      }
       res.status(401).json({ error: 'Not authenticated.' });
       return;
    }
