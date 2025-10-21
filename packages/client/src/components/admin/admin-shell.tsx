@@ -22,6 +22,7 @@ import type {
    ChatConversationType,
    ChatMessage,
 } from '@/types/chat';
+import { MessageContent } from '@/components/chat/message-content';
 
 function toErrorMessage(error: unknown): string {
    if (error instanceof Error) {
@@ -988,9 +989,7 @@ function AdminMessageItem({
                </Button>
             </div>
          ) : (
-            <p className="whitespace-pre-wrap break-words text-foreground">
-               {message.content}
-            </p>
+            <MessageContent content={message.content} />
          )}
       </div>
    );

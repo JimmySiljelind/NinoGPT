@@ -3,6 +3,7 @@ import { Download } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import type { ChatConversationType, ChatMessage } from '@/types/chat';
+import { MessageContent } from './message-content';
 
 type MessageSegment =
    | { type: 'text'; content: string }
@@ -168,9 +169,7 @@ export function ChatMessageItem({
                   segments.map((segment, index) => (
                      <Fragment key={`${segment.type}-${index}`}>
                         {segment.type === 'text' ? (
-                           <div className="whitespace-pre-wrap leading-relaxed">
-                              {segment.content}
-                           </div>
+                           <MessageContent content={segment.content} />
                         ) : (
                            <figure className="relative overflow-hidden rounded-xl bg-[#151515] text-slate-100 shadow-inner ring-1 ring-zinc-700/40">
                               {segment.language && (
