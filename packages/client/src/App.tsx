@@ -1,6 +1,7 @@
 ﻿import { AuthPage } from '@/components/auth/auth-page';
 import { ChatShell } from './chat-shell';
 import { useAuth } from '@/hooks/useAuth';
+import { AdminShell } from '@/components/admin/admin-shell';
 
 function LoadingScreen() {
    return (
@@ -38,6 +39,10 @@ function App() {
             resetError={resetError}
          />
       );
+   }
+
+   if (user.role === 'admin') {
+      return <AdminShell user={user} onLogout={logout} />;
    }
 
    return (

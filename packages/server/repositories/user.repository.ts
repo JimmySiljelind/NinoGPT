@@ -1,4 +1,6 @@
-﻿import database from '../database';
+import database from '../database';
+
+export type UserRole = 'user' | 'admin';
 
 export type UserRecord = {
    id: string;
@@ -7,6 +9,8 @@ export type UserRecord = {
    name: string;
    dateOfBirth: Date;
    phone: string;
+   role: UserRole;
+   isActive: boolean;
    createdAt: Date;
    updatedAt: Date;
 };
@@ -18,6 +22,8 @@ type UserRow = {
    name: string;
    date_of_birth: string;
    phone: string;
+   role: string;
+   is_active: number;
    created_at: string;
    updated_at: string;
 };
@@ -31,24 +37,81 @@ const insertUserStmt = database.query<
       $name: string;
       $dateOfBirth: string;
       $phone: string;
+      $role: string;
+      $isActive: number;
       $createdAt: string;
       $updatedAt: string;
    }
 >(
-   `INSERT INTO users (id, email, password_hash, name, date_of_birth, phone, created_at, updated_at)
-    VALUES ($id, $email, $passwordHash, $name, $dateOfBirth, $phone, $createdAt, $updatedAt)`
+   `INSERT INTO users (
+        id,
+        email,
+        password_hash,
+        name,
+        date_of_birth,
+        phone,
+        role,
+        is_active,
+        created_at,
+        updated_at
+    )
+    VALUES (
+        $id,
+        $email,
+        $passwordHash,
+        $name,
+        $dateOfBirth,
+        $phone,
+        $role,
+        $isActive,
+        $createdAt,
+        $updatedAt
+    )`
 );
 
 const selectUserByEmailStmt = database.query<UserRow, { $email: string }>(
-   `SELECT id, email, password_hash, name, date_of_birth, phone, created_at, updated_at
+   `SELECT id,
+           email,
+           password_hash,
+           name,
+           date_of_birth,
+           phone,
+           role,
+           is_active,
+           created_at,
+           updated_at
     FROM users
     WHERE LOWER(email) = LOWER($email)`
 );
 
 const selectUserByIdStmt = database.query<UserRow, { $id: string }>(
-   `SELECT id, email, password_hash, name, date_of_birth, phone, created_at, updated_at
+   `SELECT id,
+           email,
+           password_hash,
+           name,
+           date_of_birth,
+           phone,
+           role,
+           is_active,
+           created_at,
+           updated_at
     FROM users
     WHERE id = $id`
+);
+
+const selectAllUsersStmt = database.query<UserRow, Record<string, never>>(
+   `SELECT id,
+           email,
+           password_hash,
+           name,
+           date_of_birth,
+           phone,
+           role,
+           is_active,
+           created_at,
+           updated_at
+    FROM users
+    ORDER BY created_at DESC`
 );
 
 const updateUserTimestampStmt = database.query<
@@ -88,6 +151,21 @@ const updateUserPasswordStmt = database.query<
     WHERE id = $id`
 );
 
+const updateUserAccessStmt = database.query<
+   Record<string, never>,
+   { $id: string; $isActive: number; $updatedAt: string }
+>(
+   `UPDATE users
+    SET is_active = $isActive,
+        updated_at = $updatedAt
+    WHERE id = $id`
+);
+
+const deleteUserStmt = database.query<Record<string, never>, { $id: string }>(
+   `DELETE FROM users
+    WHERE id = $id`
+);
+
 function rowToUser(row: UserRow): UserRecord {
    return {
       id: row.id,
@@ -96,6 +174,8 @@ function rowToUser(row: UserRow): UserRecord {
       name: row.name,
       dateOfBirth: new Date(row.date_of_birth),
       phone: row.phone,
+      role: row.role === 'admin' ? 'admin' : 'user',
+      isActive: Boolean(row.is_active),
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
    };
@@ -119,6 +199,8 @@ export const userRepository = {
          $name: params.name.trim(),
          $dateOfBirth: params.dateOfBirth.toISOString(),
          $phone: params.phone.trim(),
+         $role: 'user',
+         $isActive: 1,
          $createdAt: createdAt.toISOString(),
          $updatedAt: createdAt.toISOString(),
       });
@@ -159,6 +241,11 @@ export const userRepository = {
       }
 
       return rowToUser(row);
+   },
+
+   listAll(): UserRecord[] {
+      const rows = selectAllUsersStmt.all({}) as UserRow[];
+      return rows.map(rowToUser);
    },
 
    touch(userId: string): void {
@@ -243,5 +330,42 @@ export const userRepository = {
       }
 
       return rowToUser(updated);
+   },
+
+   updateAccess(userId: string, isActive: boolean): UserRecord {
+      const existing = selectUserByIdStmt.get({ $id: userId }) as
+         | UserRow
+         | undefined
+         | null;
+
+      if (!existing) {
+         throw new Error('User not found.');
+      }
+
+      const now = new Date().toISOString();
+
+      updateUserAccessStmt.run({
+         $id: userId,
+         $isActive: isActive ? 1 : 0,
+         $updatedAt: now,
+      });
+
+      const updated = selectUserByIdStmt.get({ $id: userId }) as
+         | UserRow
+         | undefined
+         | null;
+
+      if (!updated) {
+         throw new Error('Failed to load user after updating access.');
+      }
+
+      return rowToUser(updated);
+   },
+
+   delete(userId: string): boolean {
+      const result = deleteUserStmt.run({ $id: userId }) as {
+         changes?: number;
+      };
+      return Number(result?.changes ?? 0) > 0;
    },
 };

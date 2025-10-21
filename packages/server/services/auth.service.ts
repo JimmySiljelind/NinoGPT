@@ -82,6 +82,8 @@ export type PublicUser = {
    name: string;
    dateOfBirth: string;
    phone: string;
+   role: UserRecord['role'];
+   isActive: boolean;
    createdAt: string;
    updatedAt: string;
 };
@@ -93,6 +95,8 @@ function toPublicUser(user: UserRecord): PublicUser {
       name: user.name,
       dateOfBirth: user.dateOfBirth.toISOString(),
       phone: user.phone,
+      role: user.role,
+      isActive: user.isActive,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
    };

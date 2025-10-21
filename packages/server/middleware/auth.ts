@@ -44,7 +44,7 @@ export function attachUser(req: Request, res: Response, next: NextFunction) {
       user = null;
    }
 
-   if (!user) {
+   if (!user || !user.isActive) {
       if (typeof cookieToken === 'string' && cookieToken) {
          res.clearCookie(AUTH_COOKIE_NAME, getClearAuthCookieOptions());
       }
@@ -63,6 +63,23 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
          res.clearCookie(AUTH_COOKIE_NAME, getClearAuthCookieOptions());
       }
       res.status(401).json({ error: 'Not authenticated.' });
+      return;
+   }
+
+   next();
+}
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+   if (!req.user) {
+      if (typeof req.cookies?.[AUTH_COOKIE_NAME] === 'string') {
+         res.clearCookie(AUTH_COOKIE_NAME, getClearAuthCookieOptions());
+      }
+      res.status(401).json({ error: 'Not authenticated.' });
+      return;
+   }
+
+   if (req.user.role !== 'admin') {
+      res.status(403).json({ error: 'Admin access is required.' });
       return;
    }
 

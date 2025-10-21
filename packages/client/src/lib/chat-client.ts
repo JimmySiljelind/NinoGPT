@@ -23,7 +23,7 @@ export class ChatRequestError extends Error {
    }
 }
 
-type ConversationSummaryDto = {
+export type ConversationSummaryDto = {
    id: string;
    title: string;
    type?: ChatConversationType;
@@ -34,7 +34,7 @@ type ConversationSummaryDto = {
    archivedAt?: string | null;
 };
 
-type ConversationDetailDto = ConversationSummaryDto & {
+export type ConversationDetailDto = ConversationSummaryDto & {
    messages?: MessageDto[];
 };
 
@@ -56,7 +56,7 @@ function parseMessage(dto: MessageDto): ChatMessage {
    };
 }
 
-function parseConversationSummary(
+export function parseConversationSummary(
    dto: ConversationSummaryDto
 ): ChatConversation {
    const type: ChatConversationType = dto.type === 'image' ? 'image' : 'text';
@@ -73,7 +73,7 @@ function parseConversationSummary(
    };
 }
 
-function parseConversationDetail(
+export function parseConversationDetail(
    dto: ConversationDetailDto
 ): ChatConversationDetail {
    const messagesDto = Array.isArray(dto.messages) ? dto.messages : [];

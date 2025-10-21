@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS users (
    name TEXT NOT NULL,
    date_of_birth TEXT NOT NULL,
    phone TEXT NOT NULL,
+   role TEXT NOT NULL DEFAULT 'user',
+   is_active INTEGER NOT NULL DEFAULT 1,
    created_at TEXT NOT NULL,
    updated_at TEXT NOT NULL
 );
@@ -78,6 +80,39 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_created_at
    ON messages (conversation_id, created_at);
 `);
+
+const userColumns = database
+   .query<{ name: string }, Record<string, never>>(`PRAGMA table_info(users)`)
+   .all({}) as { name: string }[];
+
+const hasUserRoleColumn = userColumns.some((column) => column.name === 'role');
+
+if (!hasUserRoleColumn) {
+   database.exec(
+      `ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'user'`
+   );
+   database.exec(
+      `UPDATE users
+       SET role = 'user'
+       WHERE role IS NULL
+          OR TRIM(role) = ''`
+   );
+}
+
+const hasUserIsActiveColumn = userColumns.some(
+   (column) => column.name === 'is_active'
+);
+
+if (!hasUserIsActiveColumn) {
+   database.exec(
+      `ALTER TABLE users ADD COLUMN is_active INTEGER NOT NULL DEFAULT 1`
+   );
+   database.exec(
+      `UPDATE users
+       SET is_active = 1
+       WHERE is_active IS NULL`
+   );
+}
 
 const projectColumns = database
    .query<

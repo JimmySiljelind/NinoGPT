@@ -1,23 +1,30 @@
 ﻿import { ChatRequestError, makeJsonRequest } from './chat-client';
 import type { AppUser } from '@/types/user';
 
-type UserDto = {
+export type UserDto = {
    id: string;
    email: string;
    name: string;
    dateOfBirth: string;
    phone: string;
+   role?: string;
+   isActive?: boolean;
    createdAt: string;
    updatedAt: string;
 };
 
-function parseUser(dto: UserDto): AppUser {
+export function parseUser(dto: UserDto): AppUser {
    return {
       id: dto.id,
       email: dto.email,
       name: dto.name,
       dateOfBirth: new Date(dto.dateOfBirth),
       phone: dto.phone,
+      role: dto.role === 'admin' ? 'admin' : 'user',
+      isActive:
+         typeof dto.isActive === 'boolean'
+            ? dto.isActive
+            : dto.isActive !== false,
       createdAt: new Date(dto.createdAt),
       updatedAt: new Date(dto.updatedAt),
    };

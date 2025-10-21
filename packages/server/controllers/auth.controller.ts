@@ -161,6 +161,13 @@ export const authController = {
             return;
          }
 
+         if (!user.isActive) {
+            res.status(403).json({
+               error: 'Your account access has been revoked. Please contact support.',
+            });
+            return;
+         }
+
          const token = authService.issueToken(user.id);
          res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
          sendUserResponse(res, authService.toPublicUser(user));

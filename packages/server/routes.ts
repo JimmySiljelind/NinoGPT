@@ -6,7 +6,8 @@ import { imageChatController } from './controllers/image-chat.controller';
 import { conversationController } from './controllers/conversation.controller';
 import { projectController } from './controllers/project.controller';
 import { userController } from './controllers/user.controller';
-import { requireAuth } from './middleware/auth';
+import { requireAdmin, requireAuth } from './middleware/auth';
+import { adminController } from './controllers/admin.controller';
 
 const router = express.Router();
 
@@ -84,6 +85,43 @@ router.patch(
    '/api/users/me/password',
    requireAuth,
    userController.changePassword
+);
+
+router.get('/api/admin/users', requireAdmin, adminController.listUsers);
+router.patch(
+   '/api/admin/users/:userId/access',
+   requireAdmin,
+   adminController.updateUserAccess
+);
+router.patch(
+   '/api/admin/users/:userId/profile',
+   requireAdmin,
+   adminController.updateUserProfile
+);
+router.patch(
+   '/api/admin/users/:userId/password',
+   requireAdmin,
+   adminController.setUserPassword
+);
+router.delete(
+   '/api/admin/users/:userId',
+   requireAdmin,
+   adminController.deleteUser
+);
+router.get(
+   '/api/admin/users/:userId/conversations',
+   requireAdmin,
+   adminController.listUserConversations
+);
+router.get(
+   '/api/admin/users/:userId/conversations/:conversationId',
+   requireAdmin,
+   adminController.getUserConversation
+);
+router.delete(
+   '/api/admin/users/:userId/conversations/:conversationId',
+   requireAdmin,
+   adminController.deleteUserConversation
 );
 
 export default router;
