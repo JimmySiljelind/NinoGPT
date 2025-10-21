@@ -123,6 +123,85 @@ export function useAuth(): UseAuthReturn {
       };
    }, []);
 
+   useEffect(() => {
+      if (typeof window === 'undefined') {
+         return;
+      }
+
+      if (!userRef.current) {
+         return;
+      }
+
+      let logoutDispatched = false;
+
+      const resolveLogoutUrl = () => {
+         try {
+            return new URL(
+               '/api/auth/logout',
+               window.location.origin
+            ).toString();
+         } catch {
+            return '/api/auth/logout';
+         }
+      };
+
+      const sendLogout = () => {
+         if (logoutDispatched || !userRef.current) {
+            return;
+         }
+
+         logoutDispatched = true;
+         const logoutUrl = resolveLogoutUrl();
+
+         try {
+            if (typeof navigator !== 'undefined' && 'sendBeacon' in navigator) {
+               const payload = new Blob([], { type: 'application/json' });
+               navigator.sendBeacon(logoutUrl, payload);
+               return;
+            }
+         } catch {
+            // Ignore sendBeacon failures and fall back to fetch.
+         }
+
+         try {
+            void fetch(logoutUrl, {
+               method: 'POST',
+               credentials: 'include',
+               keepalive: true,
+               headers: {
+                  Accept: 'application/json',
+               },
+            });
+         } catch {
+            // Ignore network errors triggered during page teardown.
+         }
+      };
+
+      const handleBeforeUnload = () => {
+         sendLogout();
+      };
+
+      const handlePageHide = (event: Event) => {
+         if (
+            'persisted' in event &&
+            typeof (event as PageTransitionEvent).persisted === 'boolean' &&
+            (event as PageTransitionEvent).persisted
+         ) {
+            return;
+         }
+
+         sendLogout();
+      };
+
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      window.addEventListener('pagehide', handlePageHide);
+
+      return () => {
+         window.removeEventListener('beforeunload', handleBeforeUnload);
+         window.removeEventListener('pagehide', handlePageHide);
+      };
+   }, [user]);
+
    const login = useCallback(
       async (input: LoginInput): Promise<AuthActionResult> => {
          setIsAuthenticating(true);
