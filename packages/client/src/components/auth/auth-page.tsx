@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import type { AuthActionResult } from '@/hooks/useAuth';
 
@@ -17,6 +18,7 @@ type RegisterFormState = {
    name: string;
    email: string;
    password: string;
+   confirmPassword: string;
    dateOfBirth: string;
    phoneCountry: string;
    phone: string;
@@ -26,6 +28,7 @@ const INITIAL_REGISTER_STATE: RegisterFormState = {
    name: '',
    email: '',
    password: '',
+   confirmPassword: '',
    dateOfBirth: '',
    phoneCountry: PHONE_COUNTRY_OPTIONS[0].code,
    phone: '',
@@ -105,6 +108,7 @@ export function AuthPage({
       const trimmedEmail = registerState.email.trim();
       const digitsOnlyPhone = registerState.phone.replace(/[^0-9]/g, '');
       const password = registerState.password;
+      const confirmPassword = registerState.confirmPassword;
 
       if (!trimmedName) {
          setFormError('Please provide your name.');
@@ -118,6 +122,11 @@ export function AuthPage({
 
       if (digitsOnlyPhone.length < 10) {
          setFormError('Phone number must include at least 10 digits.');
+         return;
+      }
+
+      if (password !== confirmPassword) {
+         setFormError('Passwords must match.');
          return;
       }
 
@@ -346,19 +355,37 @@ export function AuthPage({
                      </div>
                      <div className="space-y-2 text-left">
                         <label className="text-sm font-medium text-foreground">
-                           Date of birth
+                           Confirm password
                         </label>
                         <Input
-                           type="date"
-                           value={registerState.dateOfBirth}
+                           type="password"
+                           value={registerState.confirmPassword}
                            onChange={(event) =>
                               setRegisterState((prev) => ({
                                  ...prev,
-                                 dateOfBirth: event.target.value,
+                                 confirmPassword: event.target.value,
                               }))
                            }
+                           placeholder="Re-enter your password"
                            required
-                           className={`${sharedClassName}`}
+                           className={sharedClassName}
+                           autoComplete="new-password"
+                        />
+                     </div>
+                     <div className="space-y-2 text-left">
+                        <label className="text-sm font-medium text-foreground">
+                           Date of birth
+                        </label>
+                        <DatePicker
+                           value={registerState.dateOfBirth}
+                           onChange={(nextValue) =>
+                              setRegisterState((prev) => ({
+                                 ...prev,
+                                 dateOfBirth: nextValue,
+                              }))
+                           }
+                           placeholder="Select your birth date"
+                           disabled={isSubmitting}
                         />
                         <p className="text-xs text-muted-foreground">
                            This is used to confirm you meet the minimum age
