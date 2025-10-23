@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 import { useAdminConversations } from '@/hooks/useAdminConversations';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import type { AdminUser } from '@/lib/admin-client';
 import type { AppUser } from '@/types/user';
 import type {
@@ -151,6 +152,7 @@ function UserManagementView({
 }: UserManagementViewProps) {
    const [statusMessage, setStatusMessage] = useState<string | null>(null);
    const [statusError, setStatusError] = useState<string | null>(null);
+   const { confirm: requestConfirm, ConfirmationDialog } = useConfirmDialog();
 
    const handleRefresh = useCallback(() => {
       setStatusMessage(null);
@@ -169,172 +171,216 @@ function UserManagementView({
    );
 
    return (
-      <Card>
-         <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <div>
-               <CardTitle>User access</CardTitle>
-               <CardDescription>
-                  Manage who can sign in and remove accounts when required.
-               </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-               <Button variant="outline" size="sm" onClick={handleRefresh}>
-                  Refresh
-               </Button>
-            </div>
-         </CardHeader>
-         <CardContent className="space-y-4">
-            {error && (
-               <p className="text-sm text-destructive" role="alert">
-                  {error}
-               </p>
-            )}
-            {statusError && (
-               <p className="text-sm text-destructive" role="alert">
-                  {statusError}
-               </p>
-            )}
-            {statusMessage && (
-               <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                  {statusMessage}
-               </p>
-            )}
-            {isLoading ? (
-               <p className="text-sm text-muted-foreground">Loading users...</p>
-            ) : sortedUsers.length === 0 ? (
-               <p className="text-sm text-muted-foreground">
-                  No users have been registered yet.
-               </p>
-            ) : (
-               <div className="overflow-x-auto">
-                  <table className="w-full min-w-[640px] border-collapse text-left text-sm">
-                     <thead>
-                        <tr className="border-b border-border/70 text-xs uppercase tracking-wide text-muted-foreground">
-                           <th className="px-3 py-2 font-medium">Name</th>
-                           <th className="px-3 py-2 font-medium">Email</th>
-                           <th className="px-3 py-2 font-medium">Role</th>
-                           <th className="px-3 py-2 font-medium">Status</th>
-                           <th className="px-3 py-2 font-medium">Created</th>
-                           <th className="px-3 py-2 font-medium">Updated</th>
-                           <th className="px-3 py-2 font-medium">Actions</th>
-                        </tr>
-                     </thead>
-                     <tbody>
-                        {sortedUsers.map((user) => {
-                           const isBusy = isProcessing(user.id);
-                           const canModify =
-                              !user.isSelf && user.role !== 'admin';
+      <>
+         {ConfirmationDialog}
+         <Card>
+            <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+               <div>
+                  <CardTitle>User access</CardTitle>
+                  <CardDescription>
+                     Manage who can sign in and remove accounts when required.
+                  </CardDescription>
+               </div>
+               <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={handleRefresh}>
+                     Refresh
+                  </Button>
+               </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+               {error && (
+                  <p className="text-sm text-destructive" role="alert">
+                     {error}
+                  </p>
+               )}
+               {statusError && (
+                  <p className="text-sm text-destructive" role="alert">
+                     {statusError}
+                  </p>
+               )}
+               {statusMessage && (
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                     {statusMessage}
+                  </p>
+               )}
+               {isLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                     Loading users...
+                  </p>
+               ) : sortedUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                     No users have been registered yet.
+                  </p>
+               ) : (
+                  <div className="overflow-x-auto">
+                     <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+                        <thead>
+                           <tr className="border-b border-border/70 text-xs uppercase tracking-wide text-muted-foreground">
+                              <th className="px-3 py-2 font-medium">Name</th>
+                              <th className="px-3 py-2 font-medium">Email</th>
+                              <th className="px-3 py-2 font-medium">Role</th>
+                              <th className="px-3 py-2 font-medium">Status</th>
+                              <th className="px-3 py-2 font-medium">Created</th>
+                              <th className="px-3 py-2 font-medium">Updated</th>
+                              <th className="px-3 py-2 font-medium">Actions</th>
+                           </tr>
+                        </thead>
+                        <tbody>
+                           {sortedUsers.map((user) => {
+                              const isBusy = isProcessing(user.id);
+                              const canModify =
+                                 !user.isSelf && user.role !== 'admin';
 
-                           return (
-                              <tr
-                                 key={user.id}
-                                 className="border-b border-border/60 last:border-b-0"
-                              >
-                                 <td className="px-3 py-2 font-medium">
-                                    {user.name}
-                                 </td>
-                                 <td className="px-3 py-2 text-muted-foreground">
-                                    {user.email}
-                                 </td>
-                                 <td className="px-3 py-2 capitalize">
-                                    {user.role}
-                                 </td>
-                                 <td className="px-3 py-2">
-                                    <span
-                                       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                                          user.isActive
-                                             ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                                             : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
-                                       }`}
-                                    >
-                                       {user.isActive ? 'Active' : 'Disabled'}
-                                    </span>
-                                 </td>
-                                 <td className="px-3 py-2 text-muted-foreground">
-                                    {formatDate(user.createdAt)}
-                                 </td>
-                                 <td className="px-3 py-2 text-muted-foreground">
-                                    {formatDate(user.updatedAt)}
-                                 </td>
-                                 <td className="px-3 py-2">
-                                    <div className="flex flex-wrap gap-2">
-                                       <Button
-                                          variant="outline"
-                                          size="sm"
-                                          disabled={isBusy || !canModify}
-                                          onClick={() => {
-                                             if (!canModify) {
-                                                return;
-                                             }
-                                             void toggleAccess(
-                                                user.id,
-                                                !user.isActive
-                                             )
-                                                .then(() => {
-                                                   setStatusMessage(
-                                                      user.isActive
-                                                         ? 'Access revoked.'
-                                                         : 'Access restored.'
-                                                   );
-                                                   setStatusError(null);
-                                                })
-                                                .catch((toggleError) => {
-                                                   setStatusError(
-                                                      toErrorMessage(
-                                                         toggleError
-                                                      )
-                                                   );
-                                                   setStatusMessage(null);
-                                                });
-                                          }}
+                              return (
+                                 <tr
+                                    key={user.id}
+                                    className="border-b border-border/60 last:border-b-0"
+                                 >
+                                    <td className="px-3 py-2 font-medium">
+                                       {user.name}
+                                    </td>
+                                    <td className="px-3 py-2 text-muted-foreground">
+                                       {user.email}
+                                    </td>
+                                    <td className="px-3 py-2 capitalize">
+                                       {user.role}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                       <span
+                                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                                             user.isActive
+                                                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                                                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                          }`}
                                        >
                                           {user.isActive
-                                             ? 'Disable access'
-                                             : 'Enable access'}
-                                       </Button>
-                                       <Button
-                                          variant="destructive"
-                                          size="sm"
-                                          disabled={isBusy || !canModify}
-                                          onClick={() => {
-                                             if (
-                                                !canModify ||
-                                                !window.confirm(
-                                                   `Delete ${user.name}'s account? This cannot be undone.`
-                                                )
-                                             ) {
-                                                return;
-                                             }
-                                             void removeUser(user.id)
-                                                .then(() => {
-                                                   setStatusMessage(
-                                                      'User deleted.'
-                                                   );
-                                                   setStatusError(null);
-                                                })
-                                                .catch((removeError) => {
-                                                   setStatusError(
-                                                      toErrorMessage(
-                                                         removeError
-                                                      )
-                                                   );
+                                             ? 'Active'
+                                             : 'Disabled'}
+                                       </span>
+                                    </td>
+                                    <td className="px-3 py-2 text-muted-foreground">
+                                       {formatDate(user.createdAt)}
+                                    </td>
+                                    <td className="px-3 py-2 text-muted-foreground">
+                                       {formatDate(user.updatedAt)}
+                                    </td>
+                                    <td className="px-3 py-2">
+                                       <div className="flex flex-wrap gap-2">
+                                          <Button
+                                             variant="outline"
+                                             size="sm"
+                                             disabled={isBusy || !canModify}
+                                             onClick={() => {
+                                                if (!canModify) {
+                                                   return;
+                                                }
+                                                void (async () => {
+                                                   const isCurrentlyActive =
+                                                      user.isActive;
+                                                   const confirmed =
+                                                      await requestConfirm({
+                                                         title: isCurrentlyActive
+                                                            ? 'Disable access?'
+                                                            : 'Enable access?',
+                                                         description:
+                                                            isCurrentlyActive
+                                                               ? `Disable ${user.name}'s account? They will no longer be able to sign in.`
+                                                               : `Enable ${user.name}'s account so they can sign in again?`,
+                                                         confirmLabel:
+                                                            isCurrentlyActive
+                                                               ? 'Disable'
+                                                               : 'Enable',
+                                                         variant:
+                                                            isCurrentlyActive
+                                                               ? 'destructive'
+                                                               : 'default',
+                                                      });
+
+                                                   if (!confirmed) {
+                                                      return;
+                                                   }
+
                                                    setStatusMessage(null);
-                                                });
-                                          }}
-                                       >
-                                          Delete
-                                       </Button>
-                                    </div>
-                                 </td>
-                              </tr>
-                           );
-                        })}
-                     </tbody>
-                  </table>
-               </div>
-            )}
-         </CardContent>
-      </Card>
+                                                   setStatusError(null);
+
+                                                   try {
+                                                      await toggleAccess(
+                                                         user.id,
+                                                         !isCurrentlyActive
+                                                      );
+                                                      setStatusMessage(
+                                                         isCurrentlyActive
+                                                            ? 'Access revoked.'
+                                                            : 'Access restored.'
+                                                      );
+                                                   } catch (toggleError) {
+                                                      setStatusError(
+                                                         toErrorMessage(
+                                                            toggleError
+                                                         )
+                                                      );
+                                                   }
+                                                })();
+                                             }}
+                                          >
+                                             {user.isActive
+                                                ? 'Disable access'
+                                                : 'Enable access'}
+                                          </Button>
+                                          <Button
+                                             variant="destructive"
+                                             size="sm"
+                                             disabled={isBusy || !canModify}
+                                             onClick={() => {
+                                                if (!canModify) {
+                                                   return;
+                                                }
+                                                void (async () => {
+                                                   const confirmed =
+                                                      await requestConfirm({
+                                                         title: 'Delete user?',
+                                                         description: `Delete ${user.name}'s account? This cannot be undone.`,
+                                                         confirmLabel:
+                                                            'Delete user',
+                                                         variant: 'destructive',
+                                                      });
+
+                                                   if (!confirmed) {
+                                                      return;
+                                                   }
+
+                                                   setStatusMessage(null);
+                                                   setStatusError(null);
+
+                                                   try {
+                                                      await removeUser(user.id);
+                                                      setStatusMessage(
+                                                         'User deleted.'
+                                                      );
+                                                   } catch (removeError) {
+                                                      setStatusError(
+                                                         toErrorMessage(
+                                                            removeError
+                                                         )
+                                                      );
+                                                   }
+                                                })();
+                                             }}
+                                          >
+                                             Delete
+                                          </Button>
+                                       </div>
+                                    </td>
+                                 </tr>
+                              );
+                           })}
+                        </tbody>
+                     </table>
+                  </div>
+               )}
+            </CardContent>
+         </Card>
+      </>
    );
 }
 
@@ -373,6 +419,7 @@ function ConversationDatabaseView({
    >({});
    const [statusMessage, setStatusMessage] = useState<string | null>(null);
    const [statusError, setStatusError] = useState<string | null>(null);
+   const { confirm: requestConfirm, ConfirmationDialog } = useConfirmDialog();
 
    useEffect(() => {
       setStatusMessage(null);
@@ -414,6 +461,18 @@ function ConversationDatabaseView({
 
    const handleDeleteConversation = useCallback(
       async (conversationId: string) => {
+         const confirmed = await requestConfirm({
+            title: 'Delete conversation?',
+            description:
+               'Delete this conversation permanently? This action cannot be undone.',
+            confirmLabel: 'Delete conversation',
+            variant: 'destructive',
+         });
+
+         if (!confirmed) {
+            return;
+         }
+
          setStatusMessage(null);
          setStatusError(null);
          setDeletingConversationIds((prev) => ({
@@ -436,7 +495,12 @@ function ConversationDatabaseView({
             });
          }
       },
-      [deleteConversation, refreshConversations, onUserDataRefreshed]
+      [
+         deleteConversation,
+         refreshConversations,
+         onUserDataRefreshed,
+         requestConfirm,
+      ]
    );
 
    const groups = useMemo(
@@ -448,208 +512,220 @@ function ConversationDatabaseView({
    );
 
    return (
-      <div className="grid gap-6 md:grid-cols-[320px,1fr]">
-         <Card className="h-max">
-            <CardHeader className="space-y-3">
-               <div>
-                  <CardTitle>Users</CardTitle>
+      <>
+         {ConfirmationDialog}
+         <div className="grid gap-6 md:grid-cols-[320px,1fr]">
+            <Card className="h-max">
+               <CardHeader className="space-y-3">
+                  <div>
+                     <CardTitle>Users</CardTitle>
+                     <CardDescription>
+                        Choose a user to inspect their conversation history.
+                     </CardDescription>
+                  </div>
+                  <select
+                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/50"
+                     value={selectedUserId ?? ''}
+                     onChange={(event) => handleUserChange(event.target.value)}
+                  >
+                     <option value="">Select a user</option>
+                     {users.map((user) => (
+                        <option key={user.id} value={user.id}>
+                           {user.name} - {user.email}
+                        </option>
+                     ))}
+                  </select>
+                  <div className="flex items-center gap-2">
+                     <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefresh}
+                        disabled={!selectedUserId}
+                     >
+                        Refresh
+                     </Button>
+                     <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                           setStatusMessage(null);
+                           setStatusError(null);
+                           setDeletingConversationIds({});
+                           clearUserSelection();
+                        }}
+                        disabled={!selectedUserId}
+                     >
+                        Clear
+                     </Button>
+                  </div>
+                  {conversationsError && (
+                     <p className="text-sm text-destructive" role="alert">
+                        {conversationsError}
+                     </p>
+                  )}
+                  {statusError && (
+                     <p className="text-sm text-destructive" role="alert">
+                        {statusError}
+                     </p>
+                  )}
+                  {statusMessage && (
+                     <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                        {statusMessage}
+                     </p>
+                  )}
+               </CardHeader>
+            </Card>
+            <Card className="flex flex-col">
+               <CardHeader>
+                  <CardTitle>Conversation history</CardTitle>
                   <CardDescription>
-                     Choose a user to inspect their conversation history.
+                     {selectedUser
+                        ? `Viewing conversations for ${selectedUser.name}.`
+                        : 'Select a user to view their conversations.'}
                   </CardDescription>
-               </div>
-               <select
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-ring/50"
-                  value={selectedUserId ?? ''}
-                  onChange={(event) => handleUserChange(event.target.value)}
-               >
-                  <option value="">Select a user</option>
-                  {users.map((user) => (
-                     <option key={user.id} value={user.id}>
-                        {user.name} - {user.email}
-                     </option>
-                  ))}
-               </select>
-               <div className="flex items-center gap-2">
-                  <Button
-                     variant="outline"
-                     size="sm"
-                     onClick={handleRefresh}
-                     disabled={!selectedUserId}
-                  >
-                     Refresh
-                  </Button>
-                  <Button
-                     variant="ghost"
-                     size="sm"
-                     onClick={() => {
-                        setStatusMessage(null);
-                        setStatusError(null);
-                        setDeletingConversationIds({});
-                        clearUserSelection();
-                     }}
-                     disabled={!selectedUserId}
-                  >
-                     Clear
-                  </Button>
-               </div>
-               {conversationsError && (
-                  <p className="text-sm text-destructive" role="alert">
-                     {conversationsError}
-                  </p>
-               )}
-               {statusError && (
-                  <p className="text-sm text-destructive" role="alert">
-                     {statusError}
-                  </p>
-               )}
-               {statusMessage && (
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                     {statusMessage}
-                  </p>
-               )}
-            </CardHeader>
-         </Card>
-         <Card className="flex flex-col">
-            <CardHeader>
-               <CardTitle>Conversation history</CardTitle>
-               <CardDescription>
-                  {selectedUser
-                     ? `Viewing conversations for ${selectedUser.name}.`
-                     : 'Select a user to view their conversations.'}
-               </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-6">
-               {isLoadingConversations ? (
-                  <p className="text-sm text-muted-foreground">
-                     Loading conversations...
-                  </p>
-               ) : !selectedUserId ? (
-                  <p className="text-sm text-muted-foreground">
-                     Choose a user from the list to load their conversations.
-                  </p>
-               ) : groups.every(({ items }) => items.length === 0) ? (
-                  <p className="text-sm text-muted-foreground">
-                     No conversations found for this user.
-                  </p>
-               ) : (
-                  <div className="grid gap-6 lg:grid-cols-2">
-                     <div className="space-y-4">
-                        {groups.map(({ label, items }) => (
-                           <div key={label} className="space-y-2">
-                              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                 {label}
-                              </p>
-                              <div className="rounded-md border border-border/70">
-                                 <ul className="max-h-[320px] overflow-y-auto text-sm">
-                                    {items.length === 0 ? (
-                                       <li className="px-3 py-2 text-muted-foreground">
-                                          No conversations.
-                                       </li>
-                                    ) : (
-                                       items.map((conversation) => {
-                                          const isSelected =
-                                             selectedConversationId ===
-                                             conversation.id;
-                                          const isDeleting =
-                                             deletingConversationIds[
-                                                conversation.id
-                                             ] === true;
+               </CardHeader>
+               <CardContent className="flex flex-col gap-6">
+                  {isLoadingConversations ? (
+                     <p className="text-sm text-muted-foreground">
+                        Loading conversations...
+                     </p>
+                  ) : !selectedUserId ? (
+                     <p className="text-sm text-muted-foreground">
+                        Choose a user from the list to load their conversations.
+                     </p>
+                  ) : groups.every(({ items }) => items.length === 0) ? (
+                     <p className="text-sm text-muted-foreground">
+                        No conversations found for this user.
+                     </p>
+                  ) : (
+                     <div className="grid gap-6 lg:grid-cols-2">
+                        <div className="space-y-4">
+                           {groups.map(({ label, items }) => (
+                              <div key={label} className="space-y-2">
+                                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {label}
+                                 </p>
+                                 <div className="rounded-md border border-border/70">
+                                    <ul className="max-h-[320px] overflow-y-auto text-sm">
+                                       {items.length === 0 ? (
+                                          <li className="px-3 py-2 text-muted-foreground">
+                                             No conversations.
+                                          </li>
+                                       ) : (
+                                          items.map((conversation) => {
+                                             const isSelected =
+                                                selectedConversationId ===
+                                                conversation.id;
+                                             const isDeleting =
+                                                deletingConversationIds[
+                                                   conversation.id
+                                                ] === true;
 
-                                          return (
-                                             <li
-                                                key={conversation.id}
-                                                className={`cursor-pointer border-b border-border/60 px-3 py-2 transition last:border-b-0 ${
-                                                   isSelected
-                                                      ? 'bg-primary/10'
-                                                      : 'hover:bg-muted/80'
-                                                }`}
-                                                onClick={() => {
-                                                   void selectConversation(
-                                                      conversation.id
-                                                   ).catch((error) => {
-                                                      setStatusError(
-                                                         toErrorMessage(error)
-                                                      );
-                                                   });
-                                                }}
-                                             >
-                                                <div className="flex items-start justify-between gap-3">
-                                                   <div>
-                                                      <p className="font-medium">
-                                                         {conversation.title}
-                                                      </p>
-                                                      <p className="text-xs text-muted-foreground">
-                                                         Updated{' '}
-                                                         {formatRelativeDate(
-                                                            conversation.updatedAt
-                                                         )}
-                                                      </p>
+                                             return (
+                                                <li
+                                                   key={conversation.id}
+                                                   className={`cursor-pointer border-b border-border/60 px-3 py-2 transition last:border-b-0 ${
+                                                      isSelected
+                                                         ? 'bg-primary/10'
+                                                         : 'hover:bg-muted/80'
+                                                   }`}
+                                                   onClick={() => {
+                                                      void selectConversation(
+                                                         conversation.id
+                                                      ).catch((error) => {
+                                                         setStatusError(
+                                                            toErrorMessage(
+                                                               error
+                                                            )
+                                                         );
+                                                      });
+                                                   }}
+                                                >
+                                                   <div className="flex items-start justify-between gap-3">
+                                                      <div>
+                                                         <p className="font-medium">
+                                                            {conversation.title}
+                                                         </p>
+                                                         <p className="text-xs text-muted-foreground">
+                                                            Updated{' '}
+                                                            {formatRelativeDate(
+                                                               conversation.updatedAt
+                                                            )}
+                                                         </p>
+                                                      </div>
+                                                      <div className="flex items-center gap-2">
+                                                         <span className="text-xs uppercase text-muted-foreground">
+                                                            {conversation.type}
+                                                         </span>
+                                                         <Button
+                                                            variant="destructive"
+                                                            size="sm"
+                                                            disabled={
+                                                               isDeleting
+                                                            }
+                                                            onClick={(
+                                                               event
+                                                            ) => {
+                                                               event.stopPropagation();
+                                                               void handleDeleteConversation(
+                                                                  conversation.id
+                                                               );
+                                                            }}
+                                                         >
+                                                            {isDeleting
+                                                               ? 'Deleting...'
+                                                               : 'Delete'}
+                                                         </Button>
+                                                      </div>
                                                    </div>
-                                                   <div className="flex items-center gap-2">
-                                                      <span className="text-xs uppercase text-muted-foreground">
-                                                         {conversation.type}
-                                                      </span>
-                                                      <Button
-                                                         variant="destructive"
-                                                         size="sm"
-                                                         disabled={isDeleting}
-                                                         onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            void handleDeleteConversation(
-                                                               conversation.id
-                                                            );
-                                                         }}
-                                                      >
-                                                         {isDeleting
-                                                            ? 'Deleting...'
-                                                            : 'Delete'}
-                                                      </Button>
-                                                   </div>
-                                                </div>
-                                             </li>
-                                          );
-                                       })
-                                    )}
-                                 </ul>
+                                                </li>
+                                             );
+                                          })
+                                       )}
+                                    </ul>
+                                 </div>
                               </div>
+                           ))}
+                        </div>
+                        <div className="space-y-3">
+                           {conversationError && (
+                              <p
+                                 className="text-sm text-destructive"
+                                 role="alert"
+                              >
+                                 {conversationError}
+                              </p>
+                           )}
+                           {isLoadingConversationDetail ? (
+                              <p className="text-sm text-muted-foreground">
+                                 Loading conversation...
+                              </p>
+                           ) : !conversationDetail ? (
+                              <p className="text-sm text-muted-foreground">
+                                 Select a conversation to inspect its messages.
+                              </p>
+                           ) : (
+                              <ConversationDetailCard
+                                 conversation={conversationDetail}
+                              />
+                           )}
+                           <div className="flex gap-2">
+                              <Button
+                                 variant="outline"
+                                 size="sm"
+                                 onClick={clearConversationSelection}
+                                 disabled={!conversationDetail}
+                              >
+                                 Close conversation
+                              </Button>
                            </div>
-                        ))}
-                     </div>
-                     <div className="space-y-3">
-                        {conversationError && (
-                           <p className="text-sm text-destructive" role="alert">
-                              {conversationError}
-                           </p>
-                        )}
-                        {isLoadingConversationDetail ? (
-                           <p className="text-sm text-muted-foreground">
-                              Loading conversation...
-                           </p>
-                        ) : !conversationDetail ? (
-                           <p className="text-sm text-muted-foreground">
-                              Select a conversation to inspect its messages.
-                           </p>
-                        ) : (
-                           <ConversationDetailCard
-                              conversation={conversationDetail}
-                           />
-                        )}
-                        <div className="flex gap-2">
-                           <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={clearConversationSelection}
-                              disabled={!conversationDetail}
-                           >
-                              Close conversation
-                           </Button>
                         </div>
                      </div>
-                  </div>
-               )}
-            </CardContent>
-         </Card>
-      </div>
+                  )}
+               </CardContent>
+            </Card>
+         </div>
+      </>
    );
 }
 
@@ -1027,6 +1103,7 @@ function UserSettingsPanel({
    const [isDeletingChats, setIsDeletingChats] = useState(false);
    const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
    const [deleteError, setDeleteError] = useState<string | null>(null);
+   const { confirm: requestConfirm, ConfirmationDialog } = useConfirmDialog();
 
    useEffect(() => {
       setName(user.name);
@@ -1043,6 +1120,17 @@ function UserSettingsPanel({
 
    const handleProfileSubmit = async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+
+      const confirmed = await requestConfirm({
+         title: 'Save profile changes?',
+         description: `Update ${user.name}'s profile information with these changes?`,
+         confirmLabel: 'Save changes',
+      });
+
+      if (!confirmed) {
+         return;
+      }
+
       setProfileError(null);
       setProfileMessage(null);
       setIsSavingProfile(true);
@@ -1068,6 +1156,17 @@ function UserSettingsPanel({
          return;
       }
 
+      const confirmed = await requestConfirm({
+         title: 'Update password?',
+         description: `Set a new password for ${user.name}? They will need to use it the next time they sign in.`,
+         confirmLabel: 'Update password',
+         variant: 'destructive',
+      });
+
+      if (!confirmed) {
+         return;
+      }
+
       setIsSavingPassword(true);
 
       try {
@@ -1082,6 +1181,17 @@ function UserSettingsPanel({
    };
 
    const handleDeleteChats = async () => {
+      const confirmed = await requestConfirm({
+         title: 'Delete all conversations?',
+         description: `Delete every conversation belonging to ${user.name}? This action cannot be undone.`,
+         confirmLabel: 'Delete conversations',
+         variant: 'destructive',
+      });
+
+      if (!confirmed) {
+         return;
+      }
+
       setDeleteError(null);
       setDeleteMessage(null);
       setIsDeletingChats(true);
@@ -1101,116 +1211,120 @@ function UserSettingsPanel({
    };
 
    return (
-      <Card>
-         <CardHeader>
-            <CardTitle>User settings</CardTitle>
-            <CardDescription>
-               Manage profile details, reset passwords, and clear conversations.
-            </CardDescription>
-         </CardHeader>
-         <CardContent className="space-y-6">
-            <form onSubmit={handleProfileSubmit} className="space-y-4">
-               <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="flex flex-col gap-1 text-sm">
-                     <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Name
-                     </span>
-                     <Input
-                        value={name}
-                        onChange={(event) => setName(event.target.value)}
-                        required
-                     />
-                  </label>
-                  <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-                     <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Email
-                     </span>
-                     <Input
-                        type="email"
-                        value={email}
-                        onChange={(event) => setEmail(event.target.value)}
-                        required
-                     />
-                  </label>
-                  <label className="flex flex-col gap-1 text-sm sm:col-span-3">
-                     <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                        Phone
-                     </span>
-                     <Input
-                        value={phone}
-                        onChange={(event) => setPhone(event.target.value)}
-                        placeholder="(+46) 0701234567"
-                        required
-                     />
-                  </label>
-               </div>
-               {profileError && (
-                  <p className="text-sm text-destructive" role="alert">
-                     {profileError}
-                  </p>
-               )}
-               {profileMessage && (
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                     {profileMessage}
-                  </p>
-               )}
-               <Button type="submit" disabled={isSavingProfile}>
-                  {isSavingProfile ? 'Saving...' : 'Save profile'}
-               </Button>
-            </form>
+      <>
+         {ConfirmationDialog}
+         <Card>
+            <CardHeader>
+               <CardTitle>User settings</CardTitle>
+               <CardDescription>
+                  Manage profile details, reset passwords, and clear
+                  conversations.
+               </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+               <form onSubmit={handleProfileSubmit} className="space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                     <label className="flex flex-col gap-1 text-sm">
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                           Name
+                        </span>
+                        <Input
+                           value={name}
+                           onChange={(event) => setName(event.target.value)}
+                           required
+                        />
+                     </label>
+                     <label className="flex flex-col gap-1 text-sm sm:col-span-2">
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                           Email
+                        </span>
+                        <Input
+                           type="email"
+                           value={email}
+                           onChange={(event) => setEmail(event.target.value)}
+                           required
+                        />
+                     </label>
+                     <label className="flex flex-col gap-1 text-sm sm:col-span-3">
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                           Phone
+                        </span>
+                        <Input
+                           value={phone}
+                           onChange={(event) => setPhone(event.target.value)}
+                           placeholder="(+46) 0701234567"
+                           required
+                        />
+                     </label>
+                  </div>
+                  {profileError && (
+                     <p className="text-sm text-destructive" role="alert">
+                        {profileError}
+                     </p>
+                  )}
+                  {profileMessage && (
+                     <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                        {profileMessage}
+                     </p>
+                  )}
+                  <Button type="submit" disabled={isSavingProfile}>
+                     {isSavingProfile ? 'Saving...' : 'Save profile'}
+                  </Button>
+               </form>
 
-            <form onSubmit={handlePasswordSubmit} className="space-y-4">
-               <div className="flex flex-col gap-1 text-sm">
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                     New password
-                  </span>
-                  <Input
-                     type="password"
-                     value={newPassword}
-                     onChange={(event) => setNewPassword(event.target.value)}
-                     placeholder="Enter a new password"
-                     required
-                  />
-               </div>
-               {passwordError && (
-                  <p className="text-sm text-destructive" role="alert">
-                     {passwordError}
-                  </p>
-               )}
-               {passwordMessage && (
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                     {passwordMessage}
-                  </p>
-               )}
-               <Button type="submit" disabled={isSavingPassword}>
-                  {isSavingPassword ? 'Updating...' : 'Update password'}
-               </Button>
-            </form>
+               <form onSubmit={handlePasswordSubmit} className="space-y-4">
+                  <div className="flex flex-col gap-1 text-sm">
+                     <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        New password
+                     </span>
+                     <Input
+                        type="password"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        placeholder="Enter a new password"
+                        required
+                     />
+                  </div>
+                  {passwordError && (
+                     <p className="text-sm text-destructive" role="alert">
+                        {passwordError}
+                     </p>
+                  )}
+                  {passwordMessage && (
+                     <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                        {passwordMessage}
+                     </p>
+                  )}
+                  <Button type="submit" disabled={isSavingPassword}>
+                     {isSavingPassword ? 'Updating...' : 'Update password'}
+                  </Button>
+               </form>
 
-            <div className="space-y-3">
-               {deleteError && (
-                  <p className="text-sm text-destructive" role="alert">
-                     {deleteError}
-                  </p>
-               )}
-               {deleteMessage && (
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                     {deleteMessage}
-                  </p>
-               )}
-               <Button
-                  type="button"
-                  variant="destructive"
-                  onClick={handleDeleteChats}
-                  disabled={isDeletingChats}
-               >
-                  {isDeletingChats
-                     ? 'Deleting chats...'
-                     : 'Delete all conversations'}
-               </Button>
-            </div>
-         </CardContent>
-      </Card>
+               <div className="space-y-3">
+                  {deleteError && (
+                     <p className="text-sm text-destructive" role="alert">
+                        {deleteError}
+                     </p>
+                  )}
+                  {deleteMessage && (
+                     <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                        {deleteMessage}
+                     </p>
+                  )}
+                  <Button
+                     type="button"
+                     variant="destructive"
+                     onClick={handleDeleteChats}
+                     disabled={isDeletingChats}
+                  >
+                     {isDeletingChats
+                        ? 'Deleting chats...'
+                        : 'Delete all conversations'}
+                  </Button>
+               </div>
+            </CardContent>
+         </Card>
+      </>
    );
 }
 

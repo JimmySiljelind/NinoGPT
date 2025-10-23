@@ -17,6 +17,7 @@ import {
    CardTitle,
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import type { AuthActionResult } from '@/hooks/useAuth';
 import type { ChatConversation } from '@/types/chat';
 import type { ChatProject } from '@/types/project';
@@ -109,6 +110,7 @@ export function SettingsPage({
    const [isDeletingArchivedChats, setIsDeletingArchivedChats] =
       useState(false);
    const [isDeletingAllProjects, setIsDeletingAllProjects] = useState(false);
+   const { confirm: requestConfirm, ConfirmationDialog } = useConfirmDialog();
 
    useEffect(() => {
       setProfileName(user.name);
@@ -164,13 +166,25 @@ export function SettingsPage({
    const handleProfileSubmit = useCallback(
       async (event: FormEvent<HTMLFormElement>) => {
          event.preventDefault();
-         setIsSavingProfile(true);
-         setProfileMessage(null);
-         setProfileError(null);
 
          const trimmedName = profileName.trim();
          const trimmedEmail = profileEmail.trim();
          const trimmedPhone = profilePhone.trim();
+
+         const confirmed = await requestConfirm({
+            title: 'Save profile changes?',
+            description:
+               'Update your personal details with the information provided?',
+            confirmLabel: 'Save changes',
+         });
+
+         if (!confirmed) {
+            return;
+         }
+
+         setIsSavingProfile(true);
+         setProfileMessage(null);
+         setProfileError(null);
 
          try {
             const result = await onUpdateProfile({
@@ -193,12 +207,23 @@ export function SettingsPage({
             setIsSavingProfile(false);
          }
       },
-      [onUpdateProfile, profileEmail, profileName, profilePhone]
+      [onUpdateProfile, profileEmail, profileName, profilePhone, requestConfirm]
    );
 
    const handlePasswordSubmit = useCallback(
       async (event: FormEvent<HTMLFormElement>) => {
          event.preventDefault();
+
+         const confirmed = await requestConfirm({
+            title: 'Change password?',
+            description: 'Update your password using the values you entered?',
+            confirmLabel: 'Change password',
+         });
+
+         if (!confirmed) {
+            return;
+         }
+
          setIsSavingPassword(true);
          setPasswordMessage(null);
          setPasswordError(null);
@@ -225,11 +250,22 @@ export function SettingsPage({
             setIsSavingPassword(false);
          }
       },
-      [currentPassword, newPassword, onChangePassword]
+      [currentPassword, newPassword, onChangePassword, requestConfirm]
    );
 
    const handleArchive = useCallback(
       async (conversationId: string) => {
+         const confirmed = await requestConfirm({
+            title: 'Archive chat?',
+            description:
+               'Move this chat to archived conversations? You can restore it later.',
+            confirmLabel: 'Archive chat',
+         });
+
+         if (!confirmed) {
+            return;
+         }
+
          updatePending(conversationId, true);
          setDataMessage(null);
          setDataError(null);
@@ -243,7 +279,7 @@ export function SettingsPage({
             updatePending(conversationId, false);
          }
       },
-      [archiveConversation, updatePending]
+      [archiveConversation, updatePending, requestConfirm]
    );
 
    const handleUnarchive = useCallback(
@@ -266,6 +302,18 @@ export function SettingsPage({
 
    const handleDeleteArchived = useCallback(
       async (conversationId: string) => {
+         const confirmed = await requestConfirm({
+            title: 'Delete archived chat?',
+            description:
+               'Delete this archived chat permanently? This action cannot be undone.',
+            confirmLabel: 'Delete chat',
+            variant: 'destructive',
+         });
+
+         if (!confirmed) {
+            return;
+         }
+
          updatePending(conversationId, true);
          setDataMessage(null);
          setDataError(null);
@@ -279,7 +327,7 @@ export function SettingsPage({
             updatePending(conversationId, false);
          }
       },
-      [deleteConversation, updatePending]
+      [deleteConversation, updatePending, requestConfirm]
    );
 
    const runBulkAction = useCallback(
@@ -309,353 +357,434 @@ export function SettingsPage({
       []
    );
 
+   const handleDeleteAllChatsClick = useCallback(async () => {
+      const confirmed = await requestConfirm({
+         title: 'Delete all chats?',
+         description:
+            'Delete all chats permanently? This action cannot be undone.',
+         confirmLabel: 'Delete all chats',
+         variant: 'destructive',
+      });
+
+      if (!confirmed) {
+         return;
+      }
+
+      await runBulkAction(
+         deleteAllConversations,
+         setIsDeletingAllChats,
+         'All chats deleted',
+         'There were no chats to delete.'
+      );
+   }, [
+      deleteAllConversations,
+      requestConfirm,
+      runBulkAction,
+      setIsDeletingAllChats,
+   ]);
+
+   const handleDeleteArchivedChatsClick = useCallback(async () => {
+      const confirmed = await requestConfirm({
+         title: 'Delete all archived chats?',
+         description:
+            'Delete every archived chat permanently? This action cannot be undone.',
+         confirmLabel: 'Delete archived chats',
+         variant: 'destructive',
+      });
+
+      if (!confirmed) {
+         return;
+      }
+
+      await runBulkAction(
+         deleteArchivedConversations,
+         setIsDeletingArchivedChats,
+         'Archived chats deleted',
+         'No archived chats found.'
+      );
+   }, [
+      deleteArchivedConversations,
+      requestConfirm,
+      runBulkAction,
+      setIsDeletingArchivedChats,
+   ]);
+
+   const handleDeleteAllProjectsClick = useCallback(async () => {
+      const confirmed = await requestConfirm({
+         title: 'Delete all projects?',
+         description:
+            'Delete every project and the chats they contain? This action cannot be undone.',
+         confirmLabel: 'Delete all projects',
+         variant: 'destructive',
+      });
+
+      if (!confirmed) {
+         return;
+      }
+
+      await runBulkAction(
+         deleteAllProjects,
+         setIsDeletingAllProjects,
+         'Projects deleted',
+         'No projects found.'
+      );
+   }, [
+      deleteAllProjects,
+      requestConfirm,
+      runBulkAction,
+      setIsDeletingAllProjects,
+   ]);
+
    return (
-      <div className="flex flex-col gap-6 pb-12 mt-6">
-         <div className="flex flex-col gap-3 border-b border-border/60 pb-6 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-               <h2 className="text-3xl font-semibold text-foreground">
-                  Settings
-               </h2>
-               <p className="text-sm text-muted-foreground">
-                  Manage your account details, chat history, and data controls.
-               </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-               <ThemeToggle className="sm:order-2" />
-               <Button
-                  variant="outline"
-                  type="button"
-                  onClick={() => {
-                     void loadArchivedConversations();
-                  }}
-                  disabled={isLoadingArchived}
-                  className="sm:order-1"
-               >
-                  {isLoadingArchived
-                     ? 'Refreshing archived...'
-                     : 'Refresh archived'}
-               </Button>
-               <Button type="button" onClick={onClose}>
-                  Back to chats
-               </Button>
-            </div>
-         </div>
-
-         {globalError ? (
-            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-               {globalError}
-            </div>
-         ) : null}
-
-         <Card>
-            <CardHeader>
-               <CardTitle>Personal information</CardTitle>
-               <CardDescription>
-                  Update how we contact you. All fields are required.
-               </CardDescription>
-            </CardHeader>
-            <CardContent>
-               <form className="space-y-4" onSubmit={handleProfileSubmit}>
-                  <div className="space-y-2">
-                     <label className="text-sm font-medium text-foreground">
-                        Full name
-                     </label>
-                     <Input
-                        value={profileName}
-                        onChange={(event) => setProfileName(event.target.value)}
-                        required
-                        maxLength={120}
-                     />
-                  </div>
-                  <div className="space-y-2">
-                     <label className="text-sm font-medium text-foreground">
-                        Email address
-                     </label>
-                     <Input
-                        type="email"
-                        value={profileEmail}
-                        onChange={(event) =>
-                           setProfileEmail(event.target.value)
-                        }
-                        required
-                        autoComplete="email"
-                     />
-                  </div>
-                  <div className="space-y-2">
-                     <label className="text-sm font-medium text-foreground">
-                        Phone number
-                     </label>
-                     <Input
-                        value={profilePhone}
-                        onChange={(event) =>
-                           setProfilePhone(event.target.value)
-                        }
-                        required
-                        placeholder="(+XX) XXXXXXXXX"
-                     />
-                     <p className="text-xs text-muted-foreground">
-                        Include the country code, e.g. (+XX) XXXXXXXXX.
-                     </p>
-                  </div>
-                  {profileError ? (
-                     <p className="text-sm text-destructive">{profileError}</p>
-                  ) : null}
-                  {profileMessage ? (
-                     <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                        {profileMessage}
-                     </p>
-                  ) : null}
-                  <Button type="submit" disabled={isSavingProfile}>
-                     {isSavingProfile ? 'Saving...' : 'Save changes'}
-                  </Button>
-               </form>
-            </CardContent>
-         </Card>
-
-         <Card>
-            <CardHeader>
-               <CardTitle>Password</CardTitle>
-               <CardDescription>
-                  Choose a strong password that includes upper-case letters and
-                  special characters.
-               </CardDescription>
-            </CardHeader>
-            <CardContent>
-               <form className="space-y-4" onSubmit={handlePasswordSubmit}>
-                  <div className="space-y-2">
-                     <label className="text-sm font-medium text-foreground">
-                        Current password
-                     </label>
-                     <Input
-                        type="password"
-                        value={currentPassword}
-                        onChange={(event) =>
-                           setCurrentPassword(event.target.value)
-                        }
-                        required
-                        autoComplete="current-password"
-                     />
-                  </div>
-                  <div className="space-y-2">
-                     <label className="text-sm font-medium text-foreground">
-                        New password
-                     </label>
-                     <Input
-                        type="password"
-                        value={newPassword}
-                        onChange={(event) => setNewPassword(event.target.value)}
-                        required
-                        autoComplete="new-password"
-                     />
-                     <p className="text-xs text-muted-foreground">
-                        Minimum 8 characters, including an uppercase letter and
-                        a special character.
-                     </p>
-                  </div>
-                  {passwordError ? (
-                     <p className="text-sm text-destructive">{passwordError}</p>
-                  ) : null}
-                  {passwordMessage ? (
-                     <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                        {passwordMessage}
-                     </p>
-                  ) : null}
-                  <Button type="submit" disabled={isSavingPassword}>
-                     {isSavingPassword ? 'Updating...' : 'Change password'}
-                  </Button>
-               </form>
-            </CardContent>
-         </Card>
-
-         <Card>
-            <CardHeader>
-               <CardTitle>Data controls</CardTitle>
-               <CardDescription>
-                  Archive or remove conversations and projects. These actions
-                  cannot be undone.
-               </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
+      <>
+         {ConfirmationDialog}
+         <div className="flex flex-col gap-6 pb-12 mt-6">
+            <div className="flex flex-col gap-3 border-b border-border/60 pb-6 sm:flex-row sm:items-center sm:justify-between">
                <div>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                     <span>Active chats: {conversations.length}</span>
-                     <span>&bull;</span>
-                     <span>Archived chats: {archivedConversations.length}</span>
-                     <span>&bull;</span>
-                     <span>Total chats: {totalChats}</span>
-                     <span>&bull;</span>
-                     <span>Projects: {projects.length}</span>
+                  <h2 className="text-3xl font-semibold text-foreground">
+                     Settings
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                     Manage your account details, chat history, and data
+                     controls.
+                  </p>
+               </div>
+               <div className="flex flex-wrap items-center gap-2">
+                  <ThemeToggle className="sm:order-2" />
+                  <Button
+                     variant="outline"
+                     type="button"
+                     onClick={() => {
+                        void loadArchivedConversations();
+                     }}
+                     disabled={isLoadingArchived}
+                     className="sm:order-1"
+                  >
+                     {isLoadingArchived
+                        ? 'Refreshing archived...'
+                        : 'Refresh archived'}
+                  </Button>
+                  <Button type="button" onClick={onClose}>
+                     Back to chats
+                  </Button>
+               </div>
+            </div>
+
+            {globalError ? (
+               <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                  {globalError}
+               </div>
+            ) : null}
+
+            <Card>
+               <CardHeader>
+                  <CardTitle>Personal information</CardTitle>
+                  <CardDescription>
+                     Update how we contact you. All fields are required.
+                  </CardDescription>
+               </CardHeader>
+               <CardContent>
+                  <form className="space-y-4" onSubmit={handleProfileSubmit}>
+                     <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">
+                           Full name
+                        </label>
+                        <Input
+                           value={profileName}
+                           onChange={(event) =>
+                              setProfileName(event.target.value)
+                           }
+                           required
+                           maxLength={120}
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">
+                           Email address
+                        </label>
+                        <Input
+                           type="email"
+                           value={profileEmail}
+                           onChange={(event) =>
+                              setProfileEmail(event.target.value)
+                           }
+                           required
+                           autoComplete="email"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">
+                           Phone number
+                        </label>
+                        <Input
+                           value={profilePhone}
+                           onChange={(event) =>
+                              setProfilePhone(event.target.value)
+                           }
+                           required
+                           placeholder="(+XX) XXXXXXXXX"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                           Include the country code, e.g. (+XX) XXXXXXXXX.
+                        </p>
+                     </div>
+                     {profileError ? (
+                        <p className="text-sm text-destructive">
+                           {profileError}
+                        </p>
+                     ) : null}
+                     {profileMessage ? (
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                           {profileMessage}
+                        </p>
+                     ) : null}
+                     <Button type="submit" disabled={isSavingProfile}>
+                        {isSavingProfile ? 'Saving...' : 'Save changes'}
+                     </Button>
+                  </form>
+               </CardContent>
+            </Card>
+
+            <Card>
+               <CardHeader>
+                  <CardTitle>Password</CardTitle>
+                  <CardDescription>
+                     Choose a strong password that includes upper-case letters
+                     and special characters.
+                  </CardDescription>
+               </CardHeader>
+               <CardContent>
+                  <form className="space-y-4" onSubmit={handlePasswordSubmit}>
+                     <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">
+                           Current password
+                        </label>
+                        <Input
+                           type="password"
+                           value={currentPassword}
+                           onChange={(event) =>
+                              setCurrentPassword(event.target.value)
+                           }
+                           required
+                           autoComplete="current-password"
+                        />
+                     </div>
+                     <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground">
+                           New password
+                        </label>
+                        <Input
+                           type="password"
+                           value={newPassword}
+                           onChange={(event) =>
+                              setNewPassword(event.target.value)
+                           }
+                           required
+                           autoComplete="new-password"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                           Minimum 8 characters, including an uppercase letter
+                           and a special character.
+                        </p>
+                     </div>
+                     {passwordError ? (
+                        <p className="text-sm text-destructive">
+                           {passwordError}
+                        </p>
+                     ) : null}
+                     {passwordMessage ? (
+                        <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                           {passwordMessage}
+                        </p>
+                     ) : null}
+                     <Button type="submit" disabled={isSavingPassword}>
+                        {isSavingPassword ? 'Updating...' : 'Change password'}
+                     </Button>
+                  </form>
+               </CardContent>
+            </Card>
+
+            <Card>
+               <CardHeader>
+                  <CardTitle>Data controls</CardTitle>
+                  <CardDescription>
+                     Archive or remove conversations and projects. These actions
+                     cannot be undone.
+                  </CardDescription>
+               </CardHeader>
+               <CardContent className="space-y-6">
+                  <div>
+                     <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                        <span>Active chats: {conversations.length}</span>
+                        <span>&bull;</span>
+                        <span>
+                           Archived chats: {archivedConversations.length}
+                        </span>
+                        <span>&bull;</span>
+                        <span>Total chats: {totalChats}</span>
+                        <span>&bull;</span>
+                        <span>Projects: {projects.length}</span>
+                     </div>
                   </div>
-               </div>
-               <div className="space-y-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground/80">
-                     Active chats
-                  </h3>
-                  <ul className="space-y-3">
-                     {conversations.length === 0 ? (
-                        <li className="rounded-md border border-dashed border-border/60 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                           No active chats yet.
-                        </li>
-                     ) : (
-                        conversations.map((conversation) => (
-                           <li
-                              key={conversation.id}
-                              className="flex flex-col gap-2 rounded-md border border-border/70 bg-background/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                           >
-                              <div>
-                                 <p className="font-medium text-foreground">
-                                    {conversation.title}
-                                 </p>
-                                 <p className="text-xs text-muted-foreground">
-                                    Updated{' '}
-                                    {formatTimestamp(conversation.updatedAt)} ·{' '}
-                                    {conversation.messageCount} message
-                                    {conversation.messageCount === 1 ? '' : 's'}
-                                 </p>
-                              </div>
-                              <Button
-                                 variant="outline"
-                                 size="sm"
-                                 onClick={() => {
-                                    void handleArchive(conversation.id);
-                                 }}
-                                 disabled={
-                                    isLoadingConversations ||
-                                    Boolean(pendingIds[conversation.id])
-                                 }
-                              >
-                                 {pendingIds[conversation.id]
-                                    ? 'Archiving...'
-                                    : 'Archive'}
-                              </Button>
+                  <div className="space-y-4">
+                     <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground/80">
+                        Active chats
+                     </h3>
+                     <ul className="space-y-3">
+                        {conversations.length === 0 ? (
+                           <li className="rounded-md border border-dashed border-border/60 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                              No active chats yet.
                            </li>
-                        ))
-                     )}
-                  </ul>
-               </div>
-               <div className="space-y-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground/80">
-                     Archived chats
-                  </h3>
-                  <ul className="space-y-3">
-                     {archivedConversations.length === 0 ? (
-                        <li className="rounded-md border border-dashed border-border/60 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
-                           No chats are archived.
-                        </li>
-                     ) : (
-                        archivedConversations.map((conversation) => (
-                           <li
-                              key={conversation.id}
-                              className="flex flex-col gap-3 rounded-md border border-border/70 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-                           >
-                              <div>
-                                 <p className="font-medium text-foreground">
-                                    {conversation.title}
-                                 </p>
-                                 <p className="text-xs text-muted-foreground">
-                                    Archived{' '}
-                                    {formatTimestamp(conversation.archivedAt)} ·
-                                    Updated{' '}
-                                    {formatTimestamp(conversation.updatedAt)}
-                                 </p>
-                              </div>
-                              <div className="flex flex-wrap gap-2">
+                        ) : (
+                           conversations.map((conversation) => (
+                              <li
+                                 key={conversation.id}
+                                 className="flex flex-col gap-2 rounded-md border border-border/70 bg-background/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                 <div>
+                                    <p className="font-medium text-foreground">
+                                       {conversation.title}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                       Updated{' '}
+                                       {formatTimestamp(conversation.updatedAt)}{' '}
+                                       · {conversation.messageCount} message
+                                       {conversation.messageCount === 1
+                                          ? ''
+                                          : 's'}
+                                    </p>
+                                 </div>
                                  <Button
                                     variant="outline"
                                     size="sm"
                                     onClick={() => {
-                                       void handleUnarchive(conversation.id);
+                                       void handleArchive(conversation.id);
                                     }}
-                                    disabled={Boolean(
-                                       pendingIds[conversation.id]
-                                    )}
+                                    disabled={
+                                       isLoadingConversations ||
+                                       Boolean(pendingIds[conversation.id])
+                                    }
                                  >
                                     {pendingIds[conversation.id]
-                                       ? 'Processing...'
-                                       : 'Unarchive'}
+                                       ? 'Archiving...'
+                                       : 'Archive'}
                                  </Button>
-                                 <Button
-                                    variant="destructive"
-                                    size="sm"
-                                    onClick={() => {
-                                       void handleDeleteArchived(
-                                          conversation.id
-                                       );
-                                    }}
-                                    disabled={Boolean(
-                                       pendingIds[conversation.id]
-                                    )}
-                                 >
-                                    {pendingIds[conversation.id]
-                                       ? 'Deleting...'
-                                       : 'Delete'}
-                                 </Button>
-                              </div>
+                              </li>
+                           ))
+                        )}
+                     </ul>
+                  </div>
+                  <div className="space-y-4">
+                     <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground/80">
+                        Archived chats
+                     </h3>
+                     <ul className="space-y-3">
+                        {archivedConversations.length === 0 ? (
+                           <li className="rounded-md border border-dashed border-border/60 bg-muted/40 px-4 py-3 text-sm text-muted-foreground">
+                              No chats are archived.
                            </li>
-                        ))
-                     )}
-                  </ul>
-               </div>
-               {dataError ? (
-                  <p className="text-sm text-destructive">{dataError}</p>
-               ) : null}
-               {dataMessage ? (
-                  <p className="text-sm text-emerald-600 dark:text-emerald-400">
-                     {dataMessage}
-                  </p>
-               ) : null}
-               <div className="flex flex-col gap-3 pt-2 sm:flex-row">
-                  <Button
-                     variant="outline"
-                     onClick={() =>
-                        void runBulkAction(
-                           deleteAllConversations,
-                           setIsDeletingAllChats,
-                           'All chats deleted',
-                           'There were no chats to delete.'
-                        )
-                     }
-                     disabled={isDeletingAllChats}
-                  >
-                     {isDeletingAllChats
-                        ? 'Deleting chats...'
-                        : 'Delete all chats'}
-                  </Button>
-                  <Button
-                     variant="outline"
-                     onClick={() =>
-                        void runBulkAction(
-                           deleteArchivedConversations,
-                           setIsDeletingArchivedChats,
-                           'Archived chats deleted',
-                           'No archived chats found.'
-                        )
-                     }
-                     disabled={isDeletingArchivedChats}
-                  >
-                     {isDeletingArchivedChats
-                        ? 'Deleting archived...'
-                        : 'Delete all archived chats'}
-                  </Button>
-                  <Button
-                     variant="destructive"
-                     onClick={() =>
-                        void runBulkAction(
-                           deleteAllProjects,
-                           setIsDeletingAllProjects,
-                           'Projects deleted',
-                           'No projects found.'
-                        )
-                     }
-                     disabled={isDeletingAllProjects}
-                  >
-                     {isDeletingAllProjects
-                        ? 'Deleting projects...'
-                        : 'Delete all projects'}
-                  </Button>
-               </div>
-            </CardContent>
-         </Card>
-      </div>
+                        ) : (
+                           archivedConversations.map((conversation) => (
+                              <li
+                                 key={conversation.id}
+                                 className="flex flex-col gap-3 rounded-md border border-border/70 bg-muted/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                              >
+                                 <div>
+                                    <p className="font-medium text-foreground">
+                                       {conversation.title}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                       Archived{' '}
+                                       {formatTimestamp(
+                                          conversation.archivedAt
+                                       )}{' '}
+                                       · Updated{' '}
+                                       {formatTimestamp(conversation.updatedAt)}
+                                    </p>
+                                 </div>
+                                 <div className="flex flex-wrap gap-2">
+                                    <Button
+                                       variant="outline"
+                                       size="sm"
+                                       onClick={() => {
+                                          void handleUnarchive(conversation.id);
+                                       }}
+                                       disabled={Boolean(
+                                          pendingIds[conversation.id]
+                                       )}
+                                    >
+                                       {pendingIds[conversation.id]
+                                          ? 'Processing...'
+                                          : 'Unarchive'}
+                                    </Button>
+                                    <Button
+                                       variant="destructive"
+                                       size="sm"
+                                       onClick={() => {
+                                          void handleDeleteArchived(
+                                             conversation.id
+                                          );
+                                       }}
+                                       disabled={Boolean(
+                                          pendingIds[conversation.id]
+                                       )}
+                                    >
+                                       {pendingIds[conversation.id]
+                                          ? 'Deleting...'
+                                          : 'Delete'}
+                                    </Button>
+                                 </div>
+                              </li>
+                           ))
+                        )}
+                     </ul>
+                  </div>
+                  {dataError ? (
+                     <p className="text-sm text-destructive">{dataError}</p>
+                  ) : null}
+                  {dataMessage ? (
+                     <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                        {dataMessage}
+                     </p>
+                  ) : null}
+                  <div className="flex flex-col gap-3 pt-2 sm:flex-row">
+                     <Button
+                        variant="outline"
+                        onClick={() => {
+                           void handleDeleteAllChatsClick();
+                        }}
+                        disabled={isDeletingAllChats}
+                     >
+                        {isDeletingAllChats
+                           ? 'Deleting chats...'
+                           : 'Delete all chats'}
+                     </Button>
+                     <Button
+                        variant="outline"
+                        onClick={() => {
+                           void handleDeleteArchivedChatsClick();
+                        }}
+                        disabled={isDeletingArchivedChats}
+                     >
+                        {isDeletingArchivedChats
+                           ? 'Deleting archived...'
+                           : 'Delete all archived chats'}
+                     </Button>
+                     <Button
+                        variant="destructive"
+                        onClick={() => {
+                           void handleDeleteAllProjectsClick();
+                        }}
+                        disabled={isDeletingAllProjects}
+                     >
+                        {isDeletingAllProjects
+                           ? 'Deleting projects...'
+                           : 'Delete all projects'}
+                     </Button>
+                  </div>
+               </CardContent>
+            </Card>
+         </div>
+      </>
    );
 }
